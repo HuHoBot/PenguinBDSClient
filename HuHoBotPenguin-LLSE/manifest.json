@@ -3,7 +3,7 @@
   "type": "lse-nodejs",
   "entry": "main.js",
   "author": "huhuo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "dependencies": [
     {
       "name": "legacy-script-engine-nodejs"

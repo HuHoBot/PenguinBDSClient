@@ -10,7 +10,7 @@ const path = require('path');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
-const CONFIG_VERSION = 4;
+const CONFIG_VERSION = 5;
 
 const COMMAND_NAMES = [
     '查信息',
