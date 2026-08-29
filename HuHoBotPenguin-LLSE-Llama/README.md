@@ -152,7 +152,7 @@ sendGroupText('<群OpenID>', '[公告] 服务器即将重启');
 
 - **指令面板同步**：启动时把开启的内置命令与附属插件注册的命令（pushMenu）自动同步到 QQ 官方群聊指令面板（`features.push-menu`，默认开；`commands.<名>` 关闭的命令不同步）
 
-**指令面板同步（pushMenu）**：QQ 客户端同一场景只展示一个面板，本插件只维护一个 group 面板（跨重启按 remark 找回复用，`panel_id` 持久化在 `command-state.json`）。附属插件 `pushMenu=true` 的命令优先，内置命令按定义顺序填充剩余位置；上限 20 个命令、命令名截断到 14 字符、`permission > 0` 映射为"仅管理员可点"。首次创建时绑定 `bot.groups` 配置的群（未配群则全局生效）；旧版多面板格式会在启动时自动迁移并删除多余面板。
+**指令面板同步（pushMenu）**：QQ 客户端同一场景只展示一个面板，本插件只维护一个 group 面板（跨重启按 remark 找回复用，`panel_id` 持久化在 `command-state.json`）。附属插件 `pushMenu=true` 的命令优先，内置命令按定义顺序填充剩余位置；上限 20 个命令、命令名截断到 14 字符、`permission > 0` 映射为"仅管理员可点"。首次创建时绑定 `bot.groups` 配置的群（未配群则全局生效）；旧版多面板格式会在启动时自动迁移并删除多余面板。内置命令可用 `command-panel.<命令名>: false` 单独从面板隐藏（命令本身仍可用）。
 
 ## License
 

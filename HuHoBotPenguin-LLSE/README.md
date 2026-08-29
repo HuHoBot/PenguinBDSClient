@@ -48,6 +48,7 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 | `features.markdown-query-online` | `true` | “查在线”用自定义 Markdown 卡片展示（`msg_type=2`，官方已向所有机器人开放）；解析失败/发送失败自动回退纯文本 |
 | `features.markdown-whitelist` | `true` | “查白名单”用自定义 Markdown 卡片展示（解析 `allowlist list` 的 JSON 输出）；失败自动回退纯文本 |
 | `features.online-tps` | `true` | “查在线”输出附带实时 TPS / MSPT 统计（插件自行测量，`onTick` 不可用时自动隐藏） |
+| `command-panel.<命令名>` | `true` | 单独开关某个内置命令**是否展示在 QQ 指令面板**（命令本身照常可用；彻底关闭命令用 `commands.<命令名>`） |
 | `motd.ip` | 空 | 服务器公网地址（IP 或域名），填写后“查在线”卡片顶部显示 MOTD 状态图（motd.minebbs.com 需能连通该地址）；留空不显示 |
 | `motd.port` | `19132` | 服务器端口（BDS 默认 19132） |
 | `motd.use-markdown` | `true` | **Markdown 消息总开关**（对齐 Java 版）：`false` 时“查在线/查白名单/motd 命令”全部回退纯文本 |
@@ -227,7 +228,7 @@ sendGroupText('<群OpenID>', '[公告] 服务器即将重启');
 
 - **指令面板同步**：启动时把开启的内置命令与附属插件注册的命令（pushMenu）自动同步到 QQ 官方群聊指令面板（`features.push-menu`，默认开；`commands.<名>` 关闭的命令不同步）
 
-**指令面板同步（pushMenu）**：QQ 客户端同一场景只展示一个面板，本插件只维护一个 group 面板（跨重启按 remark 找回复用，`panel_id` 持久化在 `command-state.json`）。附属插件 `pushMenu=true` 的命令优先，内置命令按定义顺序填充剩余位置；上限 20 个命令、命令名截断到 14 字符、`permission > 0` 映射为"仅管理员可点"。首次创建时绑定 `bot.groups` 配置的群（未配群则全局生效）；旧版多面板格式会在启动时自动迁移并删除多余面板。
+**指令面板同步（pushMenu）**：QQ 客户端同一场景只展示一个面板，本插件只维护一个 group 面板（跨重启按 remark 找回复用，`panel_id` 持久化在 `command-state.json`）。附属插件 `pushMenu=true` 的命令优先，内置命令按定义顺序填充剩余位置；上限 20 个命令、命令名截断到 14 字符、`permission > 0` 映射为"仅管理员可点"。首次创建时绑定 `bot.groups` 配置的群（未配群则全局生效）；旧版多面板格式会在启动时自动迁移并删除多余面板。内置命令可用 `command-panel.<命令名>: false` 单独从面板隐藏（命令本身仍可用）。
 
 ## License
 

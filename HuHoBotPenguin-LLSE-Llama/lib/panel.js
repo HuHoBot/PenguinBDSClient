@@ -227,6 +227,7 @@ class PanelSync {
         if (!this._ready()) return Promise.resolve(false);
         const enabled = COMMANDS
             .filter((cmd) => this.bot.config.getBool('commands.' + cmd.name, true))
+            .filter((cmd) => this.bot.config.getBool('command-panel.' + cmd.name, true))
             .map((cmd) => ({ name: cmd.name, onlyAdmin: !!cmd.adminOnly }));
         return this._enqueue(() => {
             this._store().builtin = enabled;

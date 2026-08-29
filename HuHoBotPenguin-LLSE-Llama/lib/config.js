@@ -102,6 +102,7 @@ const DEFAULT_VALUES = {
 
 for (const name of COMMAND_NAMES) {
     DEFAULT_VALUES['commands.' + name] = true;
+    DEFAULT_VALUES['command-panel.' + name] = true;
 }
 
 /** 插件根目录：node 后端的 __dirname 指向 lib/，上一级即插件根。 */
