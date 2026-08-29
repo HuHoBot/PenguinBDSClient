@@ -15,6 +15,7 @@
 
 - **游戏 ↔ QQ 双向转发**：游戏内 `#消息` ↔ QQ 群；群指令系统（查在线 / 白名单 / 管理员 / 认证等 20+ 命令）
 - **📋 Markdown 卡片**：查在线 / 查白名单 / `motd` 命令（`motd.use-markdown` 总开关）
+- **⚡ TPS / MSPT 统计**：查在线附带实时性能数据（插件自行测量）
 - **🖼️ MOTD 状态图 + 可编辑模板**：`Markdown/online.md`、`motd.api` / `motd.text` 模板
 - **🛡️ 敏感词审核**：正则 + 本地词库 + 可选 OpenAI 兼容二审
 - **🎛️ 控制台命令**：`huhobot reload` / `huhobot info`

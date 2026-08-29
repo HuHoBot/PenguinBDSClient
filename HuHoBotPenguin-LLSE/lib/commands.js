@@ -14,6 +14,7 @@
 const { MODE_QQ, MODE_MANUAL, MODE_BOTH } = require('./state');
 const { renderCommand } = require('./customcommands');
 const { requestJson } = require('./qqclient');
+const { getOnlineStats, tickIcon } = require('./tickmonitor');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
@@ -58,16 +59,34 @@ function parsePlayerList(output) {
  */
 function buildOnlineMarkdown(bot, players) {
     const timestamp = Math.floor(Date.now() / 1000);
+    const stats = getOnlineStats(bot);
     let template = readMarkdownTemplate(bot, 'online.md');
+    if (template !== null && template.indexOf('{{.tps}}') === -1 && template.indexOf('{{.mspt}}') === -1) {
+        // 旧版模板缺少 TPS 占位符：追加 TPS 行并写回（升级兼容）
+        template = template.replace(/\s*$/, '') + '\n\nTPS：{{.tps}}（MSPT {{.mspt}}）\n';
+        try {
+            const fsMod = require('fs');
+            const pathMod = require('path');
+            const tplDir = pathMod.join((typeof __dirname !== 'undefined') ? pathMod.dirname(__dirname) : process.cwd(), 'Markdown');
+            fsMod.mkdirSync(tplDir, { recursive: true });
+            fsMod.writeFileSync(pathMod.join(tplDir, 'online.md'), template, 'utf8');
+        } catch (err) { /* 写失败不影响本次输出 */ }
+    }
     if (template !== null) {
-        // 用户自定义模板
-        return template
+        // 用户自定义模板；统计不可用时整行移除 TPS 占位行（避免输出 N/A）
+        let tpl = template;
+        if (!stats) {
+            tpl = tpl.replace(/^.*\{\{\.tps\}\}.*\r?\n?/gm, '').replace(/^.*\{\{\.mspt\}\}.*\r?\n?/gm, '');
+        }
+        return tpl
             .replace(/{{\.server}}/g, getServerName(bot))
             .replace(/{{\.img_url}}/g, buildMotdImgUrl(bot, timestamp))
             .replace(/{{\.player}}/g, players.length
                 ? players.map((n, i) => (i + 1) + '. **' + n + '**').join('\n')
                 : '无')
-            .replace(/{{\.online_num}}/g, String(players.length));
+            .replace(/{{\.online_num}}/g, String(players.length))
+            .replace(/{{\.tps}}/g, stats ? tickIcon(stats) + ' ' + stats.tps : '')
+            .replace(/{{\.mspt}}/g, stats ? stats.mspt + 'ms / 峰值 ' + stats.maxMspt + 'ms' : '');
     }
     // 内置默认模板
     const lines = [];
@@ -79,6 +98,9 @@ function buildOnlineMarkdown(bot, players) {
         lines.push('');
     }
     lines.push('当前在线：**' + players.length + '** 人');
+    if (stats) {
+        lines.push('TPS：' + tickIcon(stats) + ' **' + stats.tps + '**（MSPT ' + stats.mspt + 'ms / 峰值 ' + stats.maxMspt + 'ms）');
+    }
     if (players.length) {
         lines.push('');
         for (const p of players) lines.push('- ' + p);
@@ -179,10 +201,15 @@ function markdownEnabled(config) {
 function formatOnlineText(bot, players) {
     const template = bot.config.getString('motd.text', '当前在线：{online} 人\n{players}');
     const playerList = players.join('\n');
-    return template
+    let text = template
         .replace(/\{online\}/g, String(players.length))
         .replace(/\{players\}/g, playerList)
         .replace(/\{server\}/g, getServerName(bot));
+    const stats = getOnlineStats(bot);
+    if (stats) {
+        text += '\nTPS：' + tickIcon(stats) + ' ' + stats.tps + '（MSPT ' + stats.mspt + 'ms）';
+    }
+    return text;
 }
 
 /** 查白名单格式化纯文本（Markdown 关闭/不可用时的输出）。 */

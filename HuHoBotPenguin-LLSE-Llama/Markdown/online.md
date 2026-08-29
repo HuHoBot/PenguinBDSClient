@@ -4,4 +4,6 @@
 
 当前在线：**{{.online_num}}** 人
 
+TPS：{{.tps}}（MSPT {{.mspt}}）
+
 {{.player}}

@@ -87,6 +87,7 @@ QQ 开放平台官方机器人与 Minecraft 基岩版服务器之间的聊天 / 
 
 - **双向转发**：游戏 `#消息` ↔ QQ 群；20+ 群指令（查在线/白名单/管理员/认证等）
 - **📋 Markdown 卡片**：查在线 / 查白名单 / `motd` 命令（`motd.use-markdown` 总开关）
+- **⚡ TPS / MSPT 统计**：“查在线”附带实时性能数据（`features.online-tps`，默认开）
 - **MOTD 状态图 + 自定义模板**：`Markdown/online.md` 可编辑、`motd.api`/`motd.text` 模板
 - **敏感词审核**：正则 + 本地词库 + OpenAI 二审
 - **控制台命令**：`huhobot reload` / `huhobot info`

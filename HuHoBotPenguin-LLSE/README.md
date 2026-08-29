@@ -47,6 +47,7 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 | `features.full-amount` | `false` | 全量转发默认值（可用“全量”命令按群覆盖） |
 | `features.markdown-query-online` | `true` | “查在线”用自定义 Markdown 卡片展示（`msg_type=2`，官方已向所有机器人开放）；解析失败/发送失败自动回退纯文本 |
 | `features.markdown-whitelist` | `true` | “查白名单”用自定义 Markdown 卡片展示（解析 `allowlist list` 的 JSON 输出）；失败自动回退纯文本 |
+| `features.online-tps` | `true` | “查在线”输出附带实时 TPS / MSPT 统计（插件自行测量，`onTick` 不可用时自动隐藏） |
 | `motd.ip` | 空 | 服务器公网地址（IP 或域名），填写后“查在线”卡片顶部显示 MOTD 状态图（motd.minebbs.com 需能连通该地址）；留空不显示 |
 | `motd.port` | `19132` | 服务器端口（BDS 默认 19132） |
 | `motd.use-markdown` | `true` | **Markdown 消息总开关**（对齐 Java 版）：`false` 时“查在线/查白名单/motd 命令”全部回退纯文本 |
@@ -72,6 +73,8 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 
 当前在线：**{{.online_num}}** 人
 
+TPS：{{.tps}}（MSPT {{.mspt}}）
+
 {{.player}}
 ```
 
@@ -80,6 +83,8 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 | `{{.server}}` | 服务器名（`serverName`，回退 `bot.name`） |
 | `{{.img_url}}` | MOTD 状态图 URL（`motd.api` 模板，自动加时间戳防缓存） |
 | `{{.online_num}}` | 在线人数 |
+| `{{.tps}}` | TPS 状态（如 `🟢 20.0`）；统计不可用时自动移除所在行 |
+| `{{.mspt}}` | MSPT（如 `53ms / 峰值 80ms`） |
 | `{{.player}}` | 玩家列表（`1. **名字**` 换行格式） |
 
 ## 控制台命令
@@ -111,7 +116,7 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 | `查信息` | 无参：本群 OpenID / 本人 OpenID / 角色 / 认证状态；带参 ⭐：查看指定 OpenID 认证状态 |
 | `发信息 <内容>` | 过滤后广播进游戏（`[QQ] …`） |
 | `发消息 <内容>` | `发信息` 的同义词 |
-| `查在线` | 执行 `list` 返回在线玩家（默认 Markdown 卡片展示，可配置关闭） |
+| `查在线` | 执行 `list` 返回在线玩家 + 实时 TPS / MSPT（默认 Markdown 卡片展示，可配置关闭） |
 | `在线服务器` | 返回机器人名 + 在线状态 |
 | `motd <地址[:端口]>` | 查询任意 Minecraft 服务器状态（motd.minebbs.com，支持基岩/Java，在线时 Markdown 卡片 + 状态图展示） |
 | `执行 <key>` | 执行自定义命令（仅 `permission: 0` 的命令） |
