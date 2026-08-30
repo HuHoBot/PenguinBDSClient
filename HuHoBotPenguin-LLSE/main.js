@@ -141,9 +141,14 @@ function main() {
     }
 
     if (typeof ll.exports === 'function') {
-        ll.exports((playerName, rawMsg) => forwardGameMessage(String(playerName || ''), String(rawMsg || '')), 'HuHoBotPenguin', 'send');
-        log.info('[HuHoBotPenguin] 已导出桥接接口：ll.imports("HuHoBotPenguin","send")(玩家名, 原始消息)');
-        registerAdapterExports(adapter);
+        try {
+            ll.exports((playerName, rawMsg) => forwardGameMessage(String(playerName || ''), String(rawMsg || '')), 'HuHoBotPenguin', 'send');
+            log.info('[HuHoBotPenguin] 已导出桥接接口：ll.imports("HuHoBotPenguin","send")(玩家名, 原始消息)');
+            registerAdapterExports(adapter);
+        } catch (e) {
+            // 导出失败（如 reload 时同名导出已存在）不影响本插件自身功能
+            log.warn('[HuHoBotPenguin] ll.exports 注册失败（不影响自身功能）：' + (e && e.message || e));
+        }
     }
 
     return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor };
