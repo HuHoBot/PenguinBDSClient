@@ -121,14 +121,24 @@ function main() {
     }
 
     const onChatHandle = mc.listen('onChat', (player, msg) => {
+        if (!aliveFlag.alive) return; // 旧实例监听器（引擎未移除时）自禁用
         forwardGameMessage(player && player.name, msg);
     });
 
     // 进服/退服通知 → 群（前缀 + 🟢/🔴 + 玩家名；前缀=serverName，缺省回退 bot.name）
     const serverName = config.getString('serverName', '') || config.getString('bot.name', 'HuHoBot');
+    // 进退服跨实例去重：热重载后旧监听器若未被引擎移除，同一条事件会被处理两次
+    const recentJoins = globalScope.__huohoBotPenguinRecentJoins ||
+        (globalScope.__huohoBotPenguinRecentJoins = []);
     function notifyJoinLeave(player, isJoin) {
+        if (!aliveFlag.alive) return; // 旧实例监听器自禁用
         if (!bot || !config.getBool('join-leave.enabled', true)) return;
         const name = (player && player.name) || '未知';
+        const now = Date.now();
+        const key = (isJoin ? 'join|' : 'leave|') + name;
+        while (recentJoins.length && now - recentJoins[0].ts > 2000) recentJoins.shift();
+        if (recentJoins.some((e) => e.key === key)) return;
+        recentJoins.push({ key, ts: now });
         const fmtKey = isJoin ? 'join-leave.join-format' : 'join-leave.leave-format';
         const defFmt = isJoin ? '[{server}] 🟢{name}进入服务器' : '[{server}] 🔴{name}退出服务器';
         const text = config.getString(fmtKey, defFmt)
@@ -143,6 +153,9 @@ function main() {
     const tickMonitor = new TickMonitor();
     bot.tick = tickMonitor;
     tickMonitor.start();
+
+    // 实例存活标志：stopRuntime 时置 false，旧监听器即使未被引擎移除也会自禁用
+    const aliveFlag = { alive: true };
 
     client.start();
     log.info('[HuHoBotPenguin] HuHoBot Penguin 已加载（v' + VERSION + '）');
@@ -168,7 +181,7 @@ function main() {
         }
     }
 
-    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, webui };
+    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, aliveFlag, webui };
 }
 
 /**
@@ -196,6 +209,8 @@ function registerAdapterExports(adapter) {
 /** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
 function stopRuntime() {
     if (!runtime) return false;
+    // 先自禁用旧监听器（mc.removeListener 在部分引擎上无效，靠标志位兜底）
+    if (runtime.aliveFlag) runtime.aliveFlag.alive = false;
     if (runtime.client) runtime.client.stop();
     if (runtime.webui) runtime.webui.stop();
     if (runtime.onChatHandle) {
