@@ -162,6 +162,15 @@ class WSC extends EventEmitter {
         setTimeout(() => { if (this.socket) this.socket.destroy(); }, 1500);
     }
 
+    /** 立即销毁底层 socket（不做关闭握手），用于强制断开（如插件停止）。 */
+    destroy() {
+        if (this._connectTimer) {
+            clearTimeout(this._connectTimer);
+            this._connectTimer = null;
+        }
+        if (this.socket) this.socket.destroy();
+    }
+
     // ---- 内部：握手 ----
 
     _handleHandshake(chunk, key) {

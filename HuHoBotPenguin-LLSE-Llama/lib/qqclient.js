@@ -130,6 +130,10 @@ class QQClient extends EventEmitter {
             try {
                 this.ws.close(1000, 'shutdown');
             } catch (e) { /* ignore */ }
+            // 立即销毁底层 socket，不等服务端回关：reload 场景下必须确保旧连接断开
+            try {
+                this.ws.destroy();
+            } catch (e) { /* ignore */ }
             this.ws = null;
         }
         this.connected = false;

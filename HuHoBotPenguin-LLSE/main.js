@@ -256,30 +256,35 @@ function registerConsoleCommands() {
 // 入口文件每被引擎加载一次即执行一次注册与启动。
 // 热重载防护：LSE 热重载不保证触发旧实例的 onUnload，且新上下文的 globalThis 与
 // 旧上下文隔离 —— 注册表挂在 process 上（同一 Node 进程内跨上下文可见）。
-// 若上一次求值的运行实例仍在运行，先强制停掉，避免双网关连接导致消息双发。
+// 逐个停掉注册表里的全部旧实例（可能存在多个孤儿），避免双网关连接导致消息双发。
 const globalScope = (typeof process !== 'undefined' && process) ||
     (typeof globalThis !== 'undefined' ? globalThis : global);
-if (typeof globalScope.__huohoBotPenguinStop === 'function') {
-    let stoppedOld = false;
+const STOPPERS_KEY = '__huohoBotPenguinStoppers';
+const stopperRegistry = Array.isArray(globalScope[STOPPERS_KEY]) ? globalScope[STOPPERS_KEY] : (globalScope[STOPPERS_KEY] = []);
+let stoppedOrphans = 0;
+for (const stop of stopperRegistry.splice(0)) {
     try {
-        stoppedOld = !!globalScope.__huohoBotPenguinStop();
+        if (stop()) stoppedOrphans++;
     } catch (e) {
         log.warn('[HuHoBotPenguin] 停止旧运行实例失败：' + (e && e.message || e));
     }
-    if (stoppedOld) log.warn('[HuHoBotPenguin] 检测到未卸载的旧运行实例，已停止旧网关（防止双连接/消息双发）');
+}
+if (stoppedOrphans > 0) {
+    log.warn('[HuHoBotPenguin] 已停止 ' + stoppedOrphans + ' 个未卸载的旧运行实例（防止双连接/消息双发）');
 }
 
 registerConsoleCommands();
 startRuntime();
 
 // 记录本实例的停止函数，供下一次热重载时清理
-globalScope.__huohoBotPenguinStop = stopRuntime;
+stopperRegistry.push(stopRuntime);
 
 // 新 LSE（LeviLamina 时代）插件注册完全走 manifest.json，无需 ll.registerPlugin。
 if (typeof ll !== 'undefined' && ll.onUnload) {
     ll.onUnload(() => {
         stopRuntime();
-        if (globalScope.__huohoBotPenguinStop === stopRuntime) delete globalScope.__huohoBotPenguinStop;
+        const idx = stopperRegistry.indexOf(stopRuntime);
+        if (idx !== -1) stopperRegistry.splice(idx, 1);
         log.info('[HuHoBotPenguin] 插件已卸载');
     });
 }
