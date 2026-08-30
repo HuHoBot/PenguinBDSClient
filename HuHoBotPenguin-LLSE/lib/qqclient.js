@@ -260,7 +260,11 @@ class QQClient extends EventEmitter {
     }
 
     _onClose(ws, code, reason) {
-        if (ws !== this.ws) return;
+        if (ws !== this.ws) {
+            // reload/停止时 this.ws 已置空：这是旧连接的关闭回调，仅记录，不触发重连
+            log.info('[HuHoBotPenguin] 旧网关连接已断开：code=' + code + ' reason=' + (reason || '-'));
+            return;
+        }
         const wasReady = this.ready;
         this._clearTimers();
         this.connected = false;
