@@ -359,10 +359,14 @@ class QQClient extends EventEmitter {
             return;
         }
 
-        // 官方可能重复推送相同 msg_id
-        if (this.recentIds.includes(d.id)) return;
-        this.recentIds.push(d.id);
-        if (this.recentIds.length > 200) this.recentIds.shift();
+        // 官方可能重复推送相同 msg_id；且热重载期间可能多实例并存，
+        // 去重表挂在共享作用域（process）上，跨实例去重，杜绝消息双发
+        const sharedScope = (typeof process !== 'undefined' && process) || globalThis;
+        if (!sharedScope.__huohoBotPenguinSeenIds) sharedScope.__huohoBotPenguinSeenIds = [];
+        const seenIds = sharedScope.__huohoBotPenguinSeenIds;
+        if (seenIds.includes(d.id)) return;
+        seenIds.push(d.id);
+        if (seenIds.length > 200) seenIds.shift();
 
         if (this.cfg.getBool('debug.log-events', false)) {
             const author = d.author || {};

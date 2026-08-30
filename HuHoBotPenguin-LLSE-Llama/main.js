@@ -100,7 +100,9 @@ function main() {
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
     // 两路共用 forwardGameMessage，并有 1.5s 去重，避免同一条消息双发。
-    const recentForwards = [];
+    // 去重表挂在共享作用域上：热重载期间多实例并存时也不会双发。
+    const recentForwards = globalScope.__huohoBotPenguinRecentForwards ||
+        (globalScope.__huohoBotPenguinRecentForwards = []);
     function forwardGameMessage(playerName, rawMsg) {
         if (!bot) return;
         const startWith = config.getString('chat-format.start-with', '');
