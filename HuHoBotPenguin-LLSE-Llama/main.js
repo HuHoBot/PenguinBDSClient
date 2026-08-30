@@ -271,9 +271,11 @@ function registerConsoleCommands() {
 }
 
 // 入口文件每被引擎加载一次即执行一次注册与启动。
-// 热重载防护：LSE 热重载不保证触发旧实例的 onUnload，若上一次求值的运行实例
-// 仍在运行，先强制停掉，避免出现两个 QQ 网关连接导致消息双发。
-const globalScope = typeof globalThis !== 'undefined' ? globalThis : global;
+// 热重载防护：LSE 热重载不保证触发旧实例的 onUnload，且新上下文的 globalThis 与
+// 旧上下文隔离 —— 注册表挂在 process 上（同一 Node 进程内跨上下文可见）。
+// 若上一次求值的运行实例仍在运行，先强制停掉，避免双网关连接导致消息双发。
+const globalScope = (typeof process !== 'undefined' && process) ||
+    (typeof globalThis !== 'undefined' ? globalThis : global);
 if (typeof globalScope.__huohoBotPenguinStop === 'function') {
     let stoppedOld = false;
     try {

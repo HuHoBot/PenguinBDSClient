@@ -126,6 +126,7 @@ class QQClient extends EventEmitter {
             this.reconnectTimer = null;
         }
         if (this.ws) {
+            log.info('[HuHoBotPenguin] 正在关闭 QQ 网关连接…');
             try {
                 this.ws.close(1000, 'shutdown');
             } catch (e) { /* ignore */ }

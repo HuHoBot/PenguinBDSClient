@@ -270,11 +270,15 @@ class Adapter {
     }
 }
 
-/** 取全局单例：跨 reload 保持同一实例，使附属插件持有的引用不失效。 */
+/**
+ * 取跨热重载共享的单例：挂在 process 上（同一 Node 进程内跨脚本上下文可见），
+ * globalThis 在 LSE 热重载的新上下文中是隔离的，不可用于跨 reload 共享。
+ */
 function getSharedAdapter() {
-    const g = typeof globalThis !== 'undefined' ? globalThis : global;
-    if (!g[SINGLETON_KEY]) g[SINGLETON_KEY] = new Adapter();
-    return g[SINGLETON_KEY];
+    const scope = (typeof process !== 'undefined' && process) ||
+        (typeof globalThis !== 'undefined' ? globalThis : global);
+    if (!scope[SINGLETON_KEY]) scope[SINGLETON_KEY] = new Adapter();
+    return scope[SINGLETON_KEY];
 }
 
 module.exports = { Adapter, getSharedAdapter };
