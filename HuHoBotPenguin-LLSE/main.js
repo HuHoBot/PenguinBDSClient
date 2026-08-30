@@ -142,7 +142,12 @@ function main() {
 
     if (typeof ll.exports === 'function') {
         try {
-            ll.exports((playerName, rawMsg) => forwardGameMessage(String(playerName || ''), String(rawMsg || '')), 'HuHoBotPenguin', 'send');
+            // 通过 globalThis 委托到当前实例：热重载后旧注册的导出依然路由到新实例
+            globalScope.__huohoBotPenguinForward = (playerName, rawMsg) => forwardGameMessage(String(playerName || ''), String(rawMsg || ''));
+            ll.exports((playerName, rawMsg) => {
+                const fwd = globalScope.__huohoBotPenguinForward;
+                if (fwd) fwd(playerName, rawMsg);
+            }, 'HuHoBotPenguin', 'send');
             log.info('[HuHoBotPenguin] 已导出桥接接口：ll.imports("HuHoBotPenguin","send")(玩家名, 原始消息)');
             registerAdapterExports(adapter);
         } catch (e) {
@@ -175,9 +180,9 @@ function registerAdapterExports(adapter) {
     log.info('[HuHoBotPenguin] 已导出附属插件 API（namespace="HuHoBotPenguin"）：' +
         'onRecvMsg/onBotCommand/registerBotCommand/unregisterBotCommand/getAuthenticatedQq/sendGroupText/sendGroupMarkdown/sendAllGroupsText/sendAllGroupsMarkdown');
 }
-
-/** 停止当前运行实例：关网关、移除监听。幂等。 */
-function stopRuntime() {    if (!runtime) return;
+/** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
+function stopRuntime() {
+    if (!runtime) return false;
     if (runtime.client) runtime.client.stop();
     if (runtime.onChatHandle) {
         try { mc.removeListener(runtime.onChatHandle); } catch (e) { /* ignore */ }
@@ -191,6 +196,7 @@ function stopRuntime() {    if (!runtime) return;
     if (runtime.tickMonitor) runtime.tickMonitor.stop();
     runtime = null;
     bot = null;
+    return true;
 }
 
 /** 启动新实例（重载时用）。 */
@@ -248,13 +254,30 @@ function registerConsoleCommands() {
 }
 
 // 入口文件每被引擎加载一次即执行一次注册与启动。
+// 热重载防护：LSE 热重载不保证触发旧实例的 onUnload，若上一次求值的运行实例
+// 仍在运行，先强制停掉，避免出现两个 QQ 网关连接导致消息双发。
+const globalScope = typeof globalThis !== 'undefined' ? globalThis : global;
+if (typeof globalScope.__huohoBotPenguinStop === 'function') {
+    let stoppedOld = false;
+    try {
+        stoppedOld = !!globalScope.__huohoBotPenguinStop();
+    } catch (e) {
+        log.warn('[HuHoBotPenguin] 停止旧运行实例失败：' + (e && e.message || e));
+    }
+    if (stoppedOld) log.warn('[HuHoBotPenguin] 检测到未卸载的旧运行实例，已停止旧网关（防止双连接/消息双发）');
+}
+
 registerConsoleCommands();
 startRuntime();
+
+// 记录本实例的停止函数，供下一次热重载时清理
+globalScope.__huohoBotPenguinStop = stopRuntime;
 
 // 新 LSE（LeviLamina 时代）插件注册完全走 manifest.json，无需 ll.registerPlugin。
 if (typeof ll !== 'undefined' && ll.onUnload) {
     ll.onUnload(() => {
         stopRuntime();
+        if (globalScope.__huohoBotPenguinStop === stopRuntime) delete globalScope.__huohoBotPenguinStop;
         log.info('[HuHoBotPenguin] 插件已卸载');
     });
 }
