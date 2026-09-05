@@ -164,11 +164,17 @@ class AddonManager {
         return config ? config.getBool('features.load-addons', true) : true;
     }
 
-    /** 扫描并加载 addons/ 目录下全部附属插件，返回成功加载数量。 */
+    /** 扫描并加载 addons/ 目录下全部附属插件，返回成功加载数量。目录不存在时自动创建。 */
     loadAll() {
         let entries;
         try {
-            if (!fs.existsSync(this.dir) || !fs.statSync(this.dir).isDirectory()) return 0;
+            if (!fs.existsSync(this.dir)) {
+                // 首次运行自动创建 addons 目录，提示用户往里放附属插件
+                fs.mkdirSync(this.dir, { recursive: true });
+                log.info('[HuHoBotPenguin] 已创建附属插件目录：' + this.dir + '（将附属插件放入此目录即可自动加载）');
+                return 0;
+            }
+            if (!fs.statSync(this.dir).isDirectory()) return 0;
             entries = fs.readdirSync(this.dir, { withFileTypes: true });
         } catch (e) {
             log.warn('[HuHoBotPenguin] 扫描 addons 目录失败：' + (e && e.message || e));
