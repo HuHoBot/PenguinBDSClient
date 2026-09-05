@@ -85,6 +85,16 @@ function main() {
     adapter.setVersion(VERSION);
     bot.adapter = adapter;
 
+    // addons/ 目录附属插件加载（SparkBridge3 模式；features.load-addons 默认开）
+    // 放在初始化最前面：即使后续 Agent/WebUI 初始化异常也不影响附属插件目录创建与加载
+    let addonMgr = null;
+    try {
+        addonMgr = new AddonManager(adapter, configLoader.root ? configLoader.root() : process.cwd());
+        if (addonMgr.isEnabled(config)) addonMgr.loadAll();
+    } catch (e) {
+        log.error('[HuHoBotPenguin] addons 目录加载失败：' + (e && e.stack || e));
+    }
+
     const agent = new Agent(config);
     bot.agent = agent;
     agent.setBot(bot);   // 无论是否配 QQ，工具都能执行
@@ -101,10 +111,6 @@ function main() {
     client.on('ready', () => adapter.fireReady());
     client.on('privateMessage', (message) => adapter.firePrivateMsg(message));
     client.on('joinRequest', (request) => adapter.fireJoinRequest(request));
-
-    // addons/ 目录附属插件加载（SparkBridge3 模式；features.load-addons 默认开）
-    const addonMgr = new AddonManager(adapter, configLoader.root ? configLoader.root() : process.cwd());
-    if (addonMgr.isEnabled(config)) addonMgr.loadAll();
 
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
