@@ -1,0 +1,6 @@
+# MkDocs 构建产物
+site/
+
+# IDE
+.idea/
+.vscode/
