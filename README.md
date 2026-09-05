@@ -2,7 +2,7 @@
 
 📌 **本项目由 [HuHoBot/PenguinClient](https://github.com/HuHoBot/PenguinClient)（Java 版）移植**，为 LeviLamina（LLSE Node.js 后端）下的 Minecraft 基岩版（BDS）服务器提供 **QQ 开放平台官方机器人**接入插件。
 
-📚 **文档站**：<https://huhobot.github.io/PenguinBDSClient/>（源码在 [`docs/`](./docs/)，MkDocs Material 构建，push 到 main 自动部署）
+📚 **文档站**：源码在 [`docs/`](./docs/)（MkDocs Material 构建）。组织仓库无法开启 GitHub Pages，部署方式见 [`DEPLOY-DOCS.md`](./DEPLOY-DOCS.md)（在个人仓库部署）。
 
 该仓库包含两个版本，按需二选一部署到 `plugins/` 下：
 

@@ -1,6 +1,6 @@
 site_name: HuHoBotPenguin Docs
 site_description: QQ 开放平台官方机器人 × Minecraft 基岩版（BDS / LeviLamina LLSE）桥接插件
-site_url: https://huhobot.github.io/PenguinBDSClient/
+# site_url: 部署到具体仓库时按需填写，如 https://<用户名>.github.io/<仓库名>/
 repo_url: https://github.com/HuHoBot/PenguinBDSClient
 repo_name: HuHoBot/PenguinBDSClient
 copyright: Copyright &copy; 2026 HuHoBot
