@@ -108,6 +108,10 @@ QQ 开放平台官方机器人与 Minecraft 基岩版服务器之间的聊天 / 
 
 主插件启动时自动扫描 `plugins/HuHoBotPenguin-LLSE/addons/`（Llama 版为 `-LLSE-Llama/addons/`）目录并加载附属插件，直接传入 API 上下文——**无需 manifest 依赖声明，没有加载顺序问题**（`features.load-addons` 默认开）。改代码后 `huhobot reload` 立即生效。
 
+!!! warning "需要先完成 QQ 凭据配置"
+    未配置 `bot.app-id` / `bot.secret` 时，QQ 机器人不会启动——附属插件会被正常加载（目录自动创建、代码正常执行），
+    但**收发消息、群指令、指令面板等一切 QQ 功能都不可用**。请先完成[快速开始的凭据配置。
+
 目录结构（子目录或单 .js 文件均可）：
 
 ```text
