@@ -104,7 +104,7 @@ function main() {
 
     if (!hasQq) {
         log.warn('[HuHoBotPenguin] 未配置 bot.app-id / bot.secret，QQ 机器人未启动（WebUI/命令仍可用）。请编辑 plugins/HuHoBotPenguin-LLSE-Llama/config.json');
-        return { webui };
+        return { webui, addonMgr };
     }
 
     client.on('groupMessage', (message) => handleGroupMessage(bot, message));
