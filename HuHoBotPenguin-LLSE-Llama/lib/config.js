@@ -34,7 +34,8 @@ const COMMAND_NAMES = [
     '解除认证',
     '绑定白名单',
     '解绑白名单',
-    '解除绑定'
+    '解除绑定',
+    '已加载插件'
 ];
 
 const DEFAULT_VALUES = {

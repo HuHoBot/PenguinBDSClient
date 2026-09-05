@@ -213,6 +213,9 @@ function registerAdapterExports(adapter) {
     ll.exports((g, m) => adapter.unmuteMember(g, m), ns, 'unmuteMember');
     ll.exports((g, c, l) => adapter.getJoinRequests(g, c, l), ns, 'getJoinRequests');
     ll.exports((g, m, o) => adapter.approveJoinRequest(g, m, o), ns, 'approveJoinRequest');
+    ll.exports((n, v, d, a) => adapter.registerAddon(n, v, d, a), ns, 'registerAddon');
+    ll.exports((n) => adapter.unregisterAddon(n), ns, 'unregisterAddon');
+    ll.exports(() => adapter.getAddons(), ns, 'getAddons');
     log.info('[HuHoBotPenguin] 已导出附属插件 API（namespace="HuHoBotPenguin"）：' +
         'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/registerBotCommand/registerRegexCommand/' +
         'getAuthenticatedQq/isAdmin/getBotInfo/sendGroupText/sendPrivateText/muteMember/approveJoinRequest 等');

@@ -78,6 +78,7 @@ QQ 开放平台官方机器人与 Minecraft 基岩版服务器之间的聊天 / 
 - **🛠️ AI 工具**：展示 AI 可用工具与权限
 - **🧩 Skill 管理**：增删改自定义 Skill（key/名称/权限/描述/命令模板），保存自动生效
 - **💬 AI 对话**：发消息测试 AI（支持工具调用）
+- **🔌 附属插件**：已加载的附属插件列表（名称 / 版本 / 描述 / 作者）
 - **⚙️ 配置**：分组表单编辑全部配置，**保存后自动热重载生效**
 - 移动端自动折叠为汉堡菜单
 
@@ -128,6 +129,9 @@ QQ 开放平台官方机器人与 Minecraft 基岩版服务器之间的聊天 / 
 | `sendPrivateText(userOpenId, text[, msgId])` | 发送单聊文本消息 |
 | `muteMember(groupOpenId, memberOpenid, durationSeconds)` / `unmuteMember(groupOpenId, memberOpenid)` | 群成员禁言 / 解除（Promise，机器人需群管理员，最长 30 天） |
 | `getJoinRequests(groupOpenId[, cursor, limit])` / `approveJoinRequest(groupOpenId, memberOpenid, options)` | 入群申请列表 / 审批（Promise；options：{approve, joinRequestId, rejectReason, addToBlacklist}） |
+| `registerAddon(name, version, description, author)` | 注册附属插件元数据（WebUI「附属插件」页与「已加载插件」指令展示用；重复调用覆盖更新） |
+| `unregisterAddon(name)` | 注销附属插件元数据 |
+| `getAddons()` | 已注册附属插件列表（数组） |
 
 `msgPack` 为不可变消息快照：`messageId`、`groupOpenId`、`sender{id,username,memberRole}`、`content`、`rawContent`、`timestamp`、`commandKey?`、`commandArguments?`、`mentions[]`、`attachments[]`。
 

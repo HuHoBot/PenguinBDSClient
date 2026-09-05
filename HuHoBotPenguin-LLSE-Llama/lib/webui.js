@@ -35,10 +35,12 @@ class WebUI {
      * @param {object} config           Config 门面（读 webui.* 配置）
      * @param {object} agent            Agent 实例（测试 AI 用；可为 null）
      * @param {Function|null} reloadCb  保存配置后调用的重载回调（热重载插件）
+     * @param {object|null} adapter     Adapter 单例（附属插件列表）
      */
-    constructor(config, agent, reloadCb) {
+    constructor(config, agent, reloadCb, adapter) {
         this.config = config;
         this.agent = agent;
+        this.adapter = adapter || null;
         this.reloadCb = reloadCb || null;
         this.enabled = config.getBool('webui.enabled', false);
         this.host = config.getString('webui.host', '') || '127.0.0.1';
@@ -137,6 +139,8 @@ class WebUI {
                 this._guard(() => this._handleGetConfig(ctx, res))(ctx, res);
             } else if (method === 'POST' && url === '/api/config') {
                 this._guard(() => this._handleSaveConfig(ctx, res))(ctx, res);
+            } else if (method === 'GET' && url === '/api/addons') {
+                this._guard(() => this._handleAddons(ctx, res))(ctx, res);
             } else if (method === 'POST' && url === '/api/chat') {
                 this._guard(() => this._handleChat(ctx, res))(ctx, res);
             } else {
@@ -249,6 +253,11 @@ class WebUI {
         } else {
             this._json(res, 200, { ok: true, message: '配置已保存（执行 huhobot reload 生效）' });
         }
+    }
+
+    _handleAddons(req, res) {
+        const addons = this.adapter ? this.adapter.getAddons() : [];
+        this._json(res, 200, { ok: true, addons });
     }
 
     _handleChat(req, res) {
@@ -438,6 +447,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
     <div class="nav" onclick="showPage('tools',this)"><span class="ico">🛠️</span>AI 工具</div>
     <div class="nav" onclick="showPage('skills',this)"><span class="ico">🧩</span>Skill 管理</div>
     <div class="nav" onclick="showPage('chat',this)"><span class="ico">💬</span>AI 对话</div>
+    <div class="nav" onclick="showPage('addons',this)"><span class="ico">🔌</span>附属插件</div>
     <div class="nav" onclick="showPage('config',this)"><span class="ico">⚙️</span>配置</div>
     <div class="foot"><button onclick="logout()">退出登录</button></div>
   </aside>
@@ -510,6 +520,15 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
           <pre class="out" id="chat_out"></pre>
         </div>
       </div>
+      <!-- 附属插件 -->
+      <div class="pg" id="pg_addons">
+        <div class="card"><h2>🔌 已加载的附属插件
+          <button class="btn" onclick="loadAddons()" style="margin-left:auto">刷新</button>
+        </h2>
+          <div id="addonList"></div>
+          <div class="hint" style="margin-top:10px">附属插件在其加载时调用 <code>registerAddon(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里；群内指令「已加载插件」可查看同样内容。</div>
+        </div>
+      </div>
       <!-- 配置 -->
       <div class="pg" id="pg_config">
         <div class="card">
@@ -529,12 +548,12 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 
 <script>
 const FIELDS = ${fieldsJson};
-const PG_TITLES = {overview:'总览',tools:'AI 工具',skills:'Skill 管理',chat:'AI 对话',config:'配置'};
+const PG_TITLES = {overview:'总览',tools:'AI 工具',skills:'Skill 管理',chat:'AI 对话',addons:'附属插件',config:'配置'};
 let CFG = {};
 async function j(url,opt){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt});return {ok:r.ok,data:await r.json().catch(()=>({}))};}
 function g(p,o){return p.split('.').reduce((a,k)=>a&&a[k]!==undefined?a[k]:undefined,o);}
 function s(p,v,o){const ks=p.split('.');let n=o;for(let i=0;i<ks.length-1;i++){if(!n[ks[i]]||typeof n[ks[i]]!=='object')n[ks[i]]={};n=n[ks[i]];}n[ks[ks.length-1]]=v;}
-function showPage(name,el){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));document.getElementById('pg_'+name).classList.add('show');document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page_ttl').textContent=PG_TITLES[name]||name;if(window.innerWidth<=720)document.getElementById('side').classList.remove('open');}
+function showPage(name,el){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));document.getElementById('pg_'+name).classList.add('show');document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page_ttl').textContent=PG_TITLES[name]||name;if(name==='addons')loadAddons();if(window.innerWidth<=720)document.getElementById('side').classList.remove('open');}
 function toggleSide(){document.getElementById('side').classList.toggle('open');}
 async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('l_msg').textContent='';bootstrap();}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
 async function logout(){await j('/api/logout',{method:'POST'});location.reload();}
@@ -574,6 +593,8 @@ function smsg(cls,t){const el=document.getElementById('skill_msg');if(!el)return
 async function saveSkills(){const skills=collectSkills();CFG.ai=CFG.ai||{};CFG.ai.skills=skills;const r=await j('/api/config',{method:'POST',body:JSON.stringify({config:CFG})});smsg(r.ok?'done':'err',r.data.message||r.data.error||'保存');if(r.ok){setTimeout(async()=>{await loadCfg();},800);}}
 function rawToggle(){const w=document.getElementById('rawWrap');const show=w.style.display!=='block';w.style.display=show?'block':'none';if(show)document.getElementById('rawCfg').value=JSON.stringify(collectForm(),null,2);}
 async function sendChat(){const msg=document.getElementById('chat_in').value.trim();if(!msg)return;document.getElementById('chat_out').textContent='…思考中';const r=await j('/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:msg}]})});document.getElementById('chat_out').textContent=r.data.reply||r.data.error||'(空)';}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function loadAddons(){const w=document.getElementById('addonList');if(!w)return;const r=await j('/api/addons');const list=r.ok&&Array.isArray(r.data.addons)?r.data.addons:[];if(!list.length){w.innerHTML='<div class="hint">暂无附属插件——附属插件在加载时调用 <code>ll.imports("HuHoBotPenguin","registerAddon")(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里。</div>';return;}w.innerHTML=list.map(a=>'<div class="tool"><div class="tk">'+esc(a.name)+(a.version?' v'+esc(a.version):'')+'</div><div class="td">'+(esc(a.description)||'无描述')+(a.author?' · '+esc(a.author):'')+'</div></div>').join('');}
 async function bootstrap(){await status();await loadCfg();}
 bootstrap();
 </script></body></html>`;

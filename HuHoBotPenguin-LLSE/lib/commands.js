@@ -666,6 +666,23 @@ const COMMANDS = [
             ctx.bot.state.setFullForwarding(ctx.groupId, enabled);
             reply(ctx, '已设置本群全量转发：' + (enabled ? '开' : '关'));
         }
+    },
+    {
+        name: '已加载插件',
+        execute(ctx) {
+            const addons = ctx.bot.adapter ? ctx.bot.adapter.getAddons() : [];
+            if (!addons.length) {
+                reply(ctx, '当前没有已加载的附属插件');
+                return;
+            }
+            const lines = ['🔌 已加载附属插件（' + addons.length + ' 个）：'];
+            for (const a of addons) {
+                lines.push('- ' + a.name + (a.version ? ' v' + a.version : '') +
+                    (a.description ? '：' + a.description : '') +
+                    (a.author ? '（' + a.author + '）' : ''));
+            }
+            reply(ctx, lines.join('\n'));
+        }
     }
 ];
 

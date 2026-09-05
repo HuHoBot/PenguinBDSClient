@@ -33,6 +33,7 @@ class Adapter {
         this._privateListeners = new Map();    // id -> fn(msgPack, event)
         this._joinRequestListeners = new Map(); // id -> fn(msgPack, event)
         this._regexCommands = new Map();       // id -> { regex, handler }
+        this._addons = new Map();              // name -> { name, version, description, author, registeredAt }
         this.panel = new PanelSync();
     }
 
@@ -332,6 +333,39 @@ class Adapter {
             }
         }
         return result;
+    }
+
+    // ---- 附属插件元数据注册 ----
+
+    /**
+     * 注册附属插件元数据（WebUI「附属插件」页与「已加载插件」群指令展示用）。
+     * 附属插件加载时调用一次即可；重复注册覆盖更新（如 reload 后重新注册）。
+     * @returns {boolean} 是否注册成功
+     */
+    registerAddon(name, version, description, author) {
+        const n = String(name || '').trim();
+        if (!n) return false;
+        this._addons.set(n, {
+            name: n,
+            version: String(version || '').trim(),
+            description: String(description || '').trim(),
+            author: String(author || '').trim(),
+            registeredAt: new Date().toISOString()
+        });
+        log.info('[HuHoBotPenguin] 附属插件已注册：' + n +
+            (version ? ' v' + version : '') + (author ? '（' + author + '）' : ''));
+        return true;
+    }
+
+    unregisterAddon(name) {
+        const removed = this._addons.delete(String(name || '').trim());
+        if (removed) log.info('[HuHoBotPenguin] 附属插件已注销：' + name);
+        return removed;
+    }
+
+    /** 已注册附属插件列表（数组，按注册顺序）。 */
+    getAddons() {
+        return Array.from(this._addons.values());
     }
 
     // ---- 元信息与管理能力包装 ----

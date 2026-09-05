@@ -136,6 +136,7 @@ TPS：{{.tps}}（MSPT {{.mspt}}）
 | `认证` | 无参：本人认证状态；带参 ⭐：认证指定 OpenID（取最后一个词） |
 | `解除认证 [<OpenID>]` | 无参：解除本人；带参 ⭐：解除指定 OpenID |
 | `全量 <开/关>` ⭐ | 设置本群全量转发开关 |
+| `已加载插件` | 列出已注册元数据的附属插件（名称/版本/描述/作者） |
 
 ## 自定义命令
 
@@ -204,6 +205,9 @@ TPS：{{.tps}}（MSPT {{.mspt}}）
 | `sendPrivateText(userOpenId, text[, msgId])` | 发送单聊文本消息 |
 | `muteMember(groupOpenId, memberOpenid, durationSeconds)` / `unmuteMember(groupOpenId, memberOpenid)` | 群成员禁言 / 解除（Promise，机器人需群管理员，最长 30 天） |
 | `getJoinRequests(groupOpenId[, cursor, limit])` / `approveJoinRequest(groupOpenId, memberOpenid, options)` | 入群申请列表 / 审批（Promise；options：{approve, joinRequestId, rejectReason, addToBlacklist}） |
+| `registerAddon(name, version, description, author)` | 注册附属插件元数据（WebUI「附属插件」页与「已加载插件」指令展示用；重复调用覆盖更新） |
+| `unregisterAddon(name)` | 注销附属插件元数据 |
+| `getAddons()` | 已注册附属插件列表（数组） |
 
 `msgPack` 为不可变消息快照：`messageId`、`groupOpenId`、`sender{id,username,memberRole}`、`content`、`rawContent`、`timestamp`、`commandKey?`、`commandArguments?`、`mentions[]`、`attachments[]`。
 
