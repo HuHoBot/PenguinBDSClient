@@ -79,6 +79,7 @@ function main() {
     // 附属插件开放 API（globalThis 单例，reload 后引用不失效）
     const adapter = getSharedAdapter();
     adapter.attachBot(bot);
+    adapter.setVersion(VERSION);
     bot.adapter = adapter;
     
     // 启动时打印群白名单状态，帮助定位问题
@@ -86,6 +87,9 @@ function main() {
     log.info('[HuHoBotPenguin] 群白名单配置：' + (groups.length === 0 ? '未配置（允许所有群）' : '已配置 ' + groups.length + ' 个群：' + JSON.stringify(groups)));
 
     client.on('groupMessage', (message) => handleGroupMessage(bot, message));
+    client.on('ready', () => adapter.fireReady());
+    client.on('privateMessage', (message) => adapter.firePrivateMsg(message));
+    client.on('joinRequest', (request) => adapter.fireJoinRequest(request));
 
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
@@ -192,8 +196,26 @@ function registerAdapterExports(adapter) {
     ll.exports((groupOpenId, markdown, msgId) => adapter.sendGroupMarkdown(groupOpenId, markdown, msgId), ns, 'sendGroupMarkdown');
     ll.exports((text) => adapter.sendAllGroupsText(text), ns, 'sendAllGroupsText');
     ll.exports((markdown) => adapter.sendAllGroupsMarkdown(markdown), ns, 'sendAllGroupsMarkdown');
+    ll.exports((fn) => adapter.onReady(fn), ns, 'onReady');
+    ll.exports((id) => adapter.offReady(id), ns, 'offReady');
+    ll.exports((fn) => adapter.onPrivateMsg(fn), ns, 'onPrivateMsg');
+    ll.exports((id) => adapter.offPrivateMsg(id), ns, 'offPrivateMsg');
+    ll.exports((fn) => adapter.onJoinRequest(fn), ns, 'onJoinRequest');
+    ll.exports((id) => adapter.offJoinRequest(id), ns, 'offJoinRequest');
+    ll.exports((pattern, flags, handler) => adapter.registerRegexCommand(pattern, flags, handler), ns, 'registerRegexCommand');
+    ll.exports((id) => adapter.unregisterRegexCommand(id), ns, 'unregisterRegexCommand');
+    ll.exports(() => adapter.getVersion(), ns, 'getVersion');
+    ll.exports(() => adapter.getGroups(), ns, 'getGroups');
+    ll.exports((groupOpenId, openId) => adapter.isAdmin(groupOpenId, openId), ns, 'isAdmin');
+    ll.exports(() => adapter.getBotInfo(), ns, 'getBotInfo');
+    ll.exports((userOpenId, text, msgId) => adapter.sendPrivateText(userOpenId, text, msgId), ns, 'sendPrivateText');
+    ll.exports((g, m, d) => adapter.muteMember(g, m, d), ns, 'muteMember');
+    ll.exports((g, m) => adapter.unmuteMember(g, m), ns, 'unmuteMember');
+    ll.exports((g, c, l) => adapter.getJoinRequests(g, c, l), ns, 'getJoinRequests');
+    ll.exports((g, m, o) => adapter.approveJoinRequest(g, m, o), ns, 'approveJoinRequest');
     log.info('[HuHoBotPenguin] 已导出附属插件 API（namespace="HuHoBotPenguin"）：' +
-        'onRecvMsg/onBotCommand/registerBotCommand/unregisterBotCommand/getAuthenticatedQq/sendGroupText/sendGroupMarkdown/sendAllGroupsText/sendAllGroupsMarkdown');
+        'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/registerBotCommand/registerRegexCommand/' +
+        'getAuthenticatedQq/isAdmin/getBotInfo/sendGroupText/sendPrivateText/muteMember/approveJoinRequest 等');
 }
 /** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
 function stopRuntime() {

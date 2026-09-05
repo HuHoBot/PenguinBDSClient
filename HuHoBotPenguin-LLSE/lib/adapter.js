@@ -24,10 +24,15 @@ const SINGLETON_KEY = '__huohoBotPenguinAdapter';
 class Adapter {
     constructor() {
         this.bot = null;
+        this.version = null;
         this._nextId = 1;
         this._recvListeners = new Map();   // id -> fn(msgPack, event)
         this._cmdListeners = new Map();    // id -> fn(msgPack, event)
         this._runtimeCommands = new Map(); // key -> { command, permission, pushMenu }
+        this._readyListeners = new Map();      // id -> fn({version})
+        this._privateListeners = new Map();    // id -> fn(msgPack, event)
+        this._joinRequestListeners = new Map(); // id -> fn(msgPack, event)
+        this._regexCommands = new Map();       // id -> { regex, handler }
         this.panel = new PanelSync();
     }
 
@@ -35,6 +40,20 @@ class Adapter {
     attachBot(bot) {
         this.bot = bot;
         this.panel.attachBot(bot);
+    }
+
+    /** 插件版本（main.js 启动时传入）。 */
+    setVersion(version) {
+        this.version = version;
+    }
+
+    getVersion() {
+        if (this.version) return this.version;
+        try {
+            return require('../manifest.json').version || 'unknown';
+        } catch (e) {
+            return 'unknown';
+        }
     }
 
     _ready() {
@@ -76,19 +95,29 @@ class Adapter {
     _makeEvent(pack) {
         const self = this;
         let cancelled = false;
+        const target = pack.groupOpenId || pack.userOpenId;
+        const isPrivate = !pack.groupOpenId;
         return {
             pack,
-            /** 回复触发消息（被动回复），返回是否已提交发送。 */
+            /** 回复触发消息（群消息被动回复 / 单聊被动回复），返回是否已提交发送。 */
             replyText(text) {
-                if (!self._ready() || !pack.groupOpenId || text === undefined || text === null) return false;
-                self.bot.qqclient.sendGroupMessage(pack.groupOpenId, String(text), pack.messageId || undefined);
+                if (!self._ready() || !target || text === undefined || text === null) return false;
+                if (isPrivate) {
+                    self.bot.qqclient.sendPrivateMessage(target, String(text), pack.messageId || undefined);
+                } else {
+                    self.bot.qqclient.sendGroupMessage(target, String(text), pack.messageId || undefined);
+                }
                 return true;
             },
             /** 回复 Markdown（msg_type=2），返回是否已提交发送。 */
             replyMarkdown(markdown) {
-                if (!self._ready() || !pack.groupOpenId || markdown === undefined || markdown === null) return false;
-                if (typeof self.bot.qqclient.sendMarkdown !== 'function') return false;
-                self.bot.qqclient.sendMarkdown(pack.groupOpenId, String(markdown), pack.messageId || undefined);
+                if (!self._ready() || !target || markdown === undefined || markdown === null) return false;
+                if (isPrivate) {
+                    self.bot.qqclient.sendPrivateMessage(target, String(markdown), pack.messageId || undefined, 2);
+                } else {
+                    if (typeof self.bot.qqclient.sendMarkdown !== 'function') return false;
+                    self.bot.qqclient.sendMarkdown(target, String(markdown), pack.messageId || undefined);
+                }
                 return true;
             },
             /** 取消事件，阻止后续默认处理（内置命令执行 / 命令模板执行 / 全量转发）。 */
@@ -166,6 +195,196 @@ class Adapter {
             }
         }
         return result;
+    }
+
+    // ---- 就绪 / 单聊 / 入群申请事件 ----
+
+    /** 注册机器人就绪监听（网关 READY 后触发一次），返回监听器 id。 */
+    onReady(fn) {
+        if (typeof fn !== 'function') return -1;
+        const id = this._nextId++;
+        this._readyListeners.set(id, fn);
+        return id;
+    }
+
+    offReady(id) {
+        return this._readyListeners.delete(Number(id));
+    }
+
+    fireReady() {
+        if (this._readyListeners.size === 0) return;
+        const pack = { version: this.getVersion() };
+        for (const [id, fn] of Array.from(this._readyListeners.entries())) {
+            try { fn(pack); } catch (e) {
+                log.error('[HuHoBotPenguin] 附属插件 onReady 监听器 #' + id + ' 出错：' + (e && e.stack || e));
+            }
+        }
+    }
+
+    /** 注册单聊消息监听（C2C_MESSAGE_CREATE），返回监听器 id。 */
+    onPrivateMsg(fn) {
+        if (typeof fn !== 'function') return -1;
+        const id = this._nextId++;
+        this._privateListeners.set(id, fn);
+        return id;
+    }
+
+    offPrivateMsg(id) {
+        return this._privateListeners.delete(Number(id));
+    }
+
+    firePrivateMsg(message) {
+        if (this._privateListeners.size === 0) return;
+        const pack = {
+            messageId: String(message.id || ''),
+            userOpenId: String(message.userOpenId || ''),
+            content: String(message.content == null ? '' : message.content),
+            timestamp: message.timestamp || null,
+            mentions: [],
+            attachments: []
+        };
+        const event = this._makeEvent(pack);
+        for (const [id, fn] of Array.from(this._privateListeners.entries())) {
+            try { fn(pack, event); } catch (e) {
+                log.error('[HuHoBotPenguin] 附属插件 onPrivateMsg 监听器 #' + id + ' 出错：' + (e && e.stack || e));
+            }
+            if (event.isCancelled()) break;
+        }
+    }
+
+    /** 注册入群申请监听（GROUP_JOIN_REQUEST，机器人需为群管理员），返回监听器 id。 */
+    onJoinRequest(fn) {
+        if (typeof fn !== 'function') return -1;
+        const id = this._nextId++;
+        this._joinRequestListeners.set(id, fn);
+        return id;
+    }
+
+    offJoinRequest(id) {
+        return this._joinRequestListeners.delete(Number(id));
+    }
+
+    fireJoinRequest(request) {
+        if (this._joinRequestListeners.size === 0) return;
+        const pack = {
+            groupOpenId: String(request.groupOpenId || ''),
+            memberOpenid: String(request.memberOpenid || ''),
+            username: String(request.username || ''),
+            joinRequestId: String(request.joinRequestId || ''),
+            applyAt: String(request.applyAt || ''),
+            verifyMessage: String(request.verifyMessage || ''),
+            mentions: [],
+            attachments: []
+        };
+        const event = this._makeEvent(pack);
+        for (const [id, fn] of Array.from(this._joinRequestListeners.entries())) {
+            try { fn(pack, event); } catch (e) {
+                log.error('[HuHoBotPenguin] 附属插件 onJoinRequest 监听器 #' + id + ' 出错：' + (e && e.stack || e));
+            }
+            if (event.isCancelled()) break;
+        }
+    }
+
+    // ---- 正则命令 ----
+
+    /**
+     * 注册正则命令：群消息未命中内置/运行时命令时，依次尝试正则匹配。
+     * handler 签名 fn(msgPack, match, event)；event.setCancelled 可取消后续默认处理。
+     * @returns {number} 监听器 id，参数非法返回 -1
+     */
+    registerRegexCommand(pattern, flags, handler) {
+        if (typeof handler !== 'function' || !pattern) return -1;
+        let regex;
+        try {
+            regex = new RegExp(String(pattern), String(flags || ''));
+        } catch (e) {
+            log.warn('[HuHoBotPenguin] registerRegexCommand 正则非法：' + (e && e.message || e));
+            return -1;
+        }
+        const id = this._nextId++;
+        this._regexCommands.set(id, { regex, handler });
+        log.info('[HuHoBotPenguin] 附属插件注册正则命令：/' + pattern + '/' + (flags || ''));
+        return id;
+    }
+
+    unregisterRegexCommand(id) {
+        return this._regexCommands.delete(Number(id));
+    }
+
+    /**
+     * 触发正则命令匹配（cleaned 为去 @ 前缀的消息文本）。
+     * @returns {{cancelled: boolean}} cancelled=true 时取消后续默认处理
+     */
+    fireRegexCommands(cleaned, message) {
+        const result = { cancelled: false };
+        if (this._regexCommands.size === 0) return result;
+        for (const [, item] of Array.from(this._regexCommands.entries())) {
+            const match = item.regex.exec(cleaned);
+            if (!match) continue;
+            const pack = this.buildMsgPack(message, { regexMatches: match.slice(0) });
+            const event = this._makeEvent(pack);
+            try { item.handler(pack, match, event); } catch (e) {
+                log.error('[HuHoBotPenguin] 附属插件正则命令出错：' + (e && e.stack || e));
+            }
+            if (event.isCancelled()) {
+                result.cancelled = true;
+                break;
+            }
+        }
+        return result;
+    }
+
+    // ---- 元信息与管理能力包装 ----
+
+    /** 配置的群 OpenID 列表副本。 */
+    getGroups() {
+        return this.bot ? this.bot.config.getList('bot.groups').slice() : [];
+    }
+
+    /**
+     * 判断是否管理员（基于配置 admin.openids + 手动管理员；不含群 QQ 管理员角色，
+     * 角色只在消息上下文可知）。
+     */
+    isAdmin(groupOpenId, openId) {
+        if (!this.bot || !groupOpenId || !openId) return false;
+        return this.bot.state.isManualAdmin(groupOpenId, openId);
+    }
+
+    /** 获取机器人信息（GET /users/@me），返回 Promise<{id, username, avatar}>。 */
+    getBotInfo() {
+        if (!this._ready()) return Promise.reject(new Error('QQ 机器人未启动'));
+        return this.bot.qqclient.getBotInfo();
+    }
+
+    /** 发送单聊文本消息，返回是否已提交发送。 */
+    sendPrivateText(userOpenId, text, msgId) {
+        if (!this._ready() || !userOpenId || text === undefined || text === null) return false;
+        this.bot.qqclient.sendPrivateMessage(String(userOpenId), String(text), msgId || undefined);
+        return true;
+    }
+
+    /** 禁言群成员（机器人需群管理员，最长 30 天），返回 Promise。 */
+    muteMember(groupOpenId, memberOpenid, durationSeconds) {
+        if (!this._ready()) return Promise.reject(new Error('QQ 机器人未启动'));
+        return this.bot.qqclient.muteMember(groupOpenId, memberOpenid, durationSeconds);
+    }
+
+    /** 解除群成员禁言，返回 Promise。 */
+    unmuteMember(groupOpenId, memberOpenid) {
+        if (!this._ready()) return Promise.reject(new Error('QQ 机器人未启动'));
+        return this.bot.qqclient.unmuteMember(groupOpenId, memberOpenid);
+    }
+
+    /** 拉取入群申请列表，返回 Promise<{list, next_cursor}>。 */
+    getJoinRequests(groupOpenId, cursor, limit) {
+        if (!this._ready()) return Promise.reject(new Error('QQ 机器人未启动'));
+        return this.bot.qqclient.getJoinRequests(groupOpenId, cursor, limit);
+    }
+
+    /** 审批入群申请（options: {approve, joinRequestId, rejectReason, addToBlacklist}），返回 Promise。 */
+    approveJoinRequest(groupOpenId, memberOpenid, options) {
+        if (!this._ready()) return Promise.reject(new Error('QQ 机器人未启动'));
+        return this.bot.qqclient.approveJoinRequest(groupOpenId, memberOpenid, options);
     }
 
     // ---- 运行时命令 ----

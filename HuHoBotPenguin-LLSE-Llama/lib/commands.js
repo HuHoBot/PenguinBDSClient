@@ -741,6 +741,11 @@ function handleGroupMessage(bot, message) {
                 return true;
             }
         }
+        // 附属插件正则命令：未命中内置/运行时命令后尝试正则匹配（setCancelled 可取消默认处理）
+        if (bot.adapter && bot.adapter._regexCommands.size > 0) {
+            const rx = bot.adapter.fireRegexCommands(cleaned, message);
+            if (rx.cancelled) return true;
+        }
         if (logEvents) log.info('[HuHoBotPenguin] 非命令消息（bot.groups=' + JSON.stringify(groups) +
             '，isFullForwarding=' + bot.state.isFullForwarding(message.groupId) + '）');
     }

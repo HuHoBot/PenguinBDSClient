@@ -26,6 +26,7 @@ const OP_HEARTBEAT_ACK = 11;
 const OP_INVALID_SESSION = 9;
 
 const INTENTS_GROUP_AND_C2C = 1 << 25;
+const INTENTS_GROUP_MEMBER = 1 << 24; // GROUP_JOIN_REQUEST（入群申请事件，机器人需为群管理员）
 const TOKEN_REFRESH_LEAD = 60 * 1000; // 提前 60s 刷新
 const MAX_RECONNECT_DELAY = 30 * 1000;
 const SEND_GAP_MS = 500; // 发消息串行队列的节流间隔
@@ -73,6 +74,31 @@ function requestJson({ host, path: requestPath, method = 'GET', headers = {}, bo
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** 跨实例共享的已处理事件 id 列表（热重载期间多实例并存时防双发）。 */
+function sharedSeenIds() {
+    const scope = (typeof process !== 'undefined' && process) || globalThis;
+    if (!scope.__huohoBotPenguinSeenIds) scope.__huohoBotPenguinSeenIds = [];
+    return scope.__huohoBotPenguinSeenIds;
+}
+
+/** 记录一次事件 id；已处理过返回 false。 */
+function seenOnce(id) {
+    const seen = sharedSeenIds();
+    if (seen.includes(id)) return false;
+    seen.push(id);
+    if (seen.length > 500) seen.shift();
+    return true;
+}
+
+/** 被动回复序号：同一 msg_id 多次回复时递增 msg_seq，避免被官方去重拦截（每条消息最多回 5 次）。 */
+function nextMsgSeq(msgId) {
+    const scope = (typeof process !== 'undefined' && process) || globalThis;
+    if (!scope.__huohoBotPenguinMsgSeq) scope.__huohoBotPenguinMsgSeq = {};
+    const map = scope.__huohoBotPenguinMsgSeq;
+    map[msgId] = (map[msgId] || 0) + 1;
+    return map[msgId];
 }
 
 class QQClient extends EventEmitter {
@@ -216,11 +242,11 @@ class QQClient extends EventEmitter {
                 d: { token: 'QQBot ' + token, session_id: this.sessionId, seq: this.lastSeq }
             }));
         } else {
-            ws.send(JSON.stringify({
-                op: OP_IDENTIFY,
-                d: {
-                    token: 'QQBot ' + token,
-                    intents: INTENTS_GROUP_AND_C2C,
+                ws.send(JSON.stringify({
+                    op: OP_IDENTIFY,
+                    d: {
+                        token: 'QQBot ' + token,
+                        intents: INTENTS_GROUP_AND_C2C | INTENTS_GROUP_MEMBER,
                     shard: [0, 1],
                     properties: {
                         $os: process.platform || 'linux',
@@ -354,6 +380,12 @@ class QQClient extends EventEmitter {
         // 群里 @ 消息；以及开了"接收群内全部消息"后的全量消息（含 @，字段与 GROUP_AT 完全一致）
         if (payload.t === 'GROUP_AT_MESSAGE_CREATE' || payload.t === 'GROUP_MESSAGE_CREATE') {
             this._onGroupMessage(payload.d);
+        } else if (payload.t === 'C2C_MESSAGE_CREATE') {
+            // 用户单聊消息（intents 已含 GROUP_AND_C2C_EVENT）
+            this._onPrivateMessage(payload.d);
+        } else if (payload.t === 'GROUP_JOIN_REQUEST') {
+            // 用户申请加群（需机器人有群管理员身份才会推送）
+            this._onJoinRequest(payload.d);
         }
     }
 
@@ -365,12 +397,7 @@ class QQClient extends EventEmitter {
 
         // 官方可能重复推送相同 msg_id；且热重载期间可能多实例并存，
         // 去重表挂在共享作用域（process）上，跨实例去重，杜绝消息双发
-        const sharedScope = (typeof process !== 'undefined' && process) || globalThis;
-        if (!sharedScope.__huohoBotPenguinSeenIds) sharedScope.__huohoBotPenguinSeenIds = [];
-        const seenIds = sharedScope.__huohoBotPenguinSeenIds;
-        if (seenIds.includes(d.id)) return;
-        seenIds.push(d.id);
-        if (seenIds.length > 200) seenIds.shift();
+        if (!seenOnce(d.id)) return;
 
         if (this.cfg.getBool('debug.log-events', false)) {
             const author = d.author || {};
@@ -390,6 +417,45 @@ class QQClient extends EventEmitter {
             timestamp: d.timestamp
         };
         this.emit('groupMessage', message);
+    }
+
+    /** 用户单聊消息（C2C_MESSAGE_CREATE）。 */
+    _onPrivateMessage(d) {
+        if (!d || !d.id || !d.user_openid) {
+            log.warn('[HuHoBotPenguin] 单聊消息事件缺少 user_openid/id 字段：' + JSON.stringify(d || {}).slice(0, 300));
+            return;
+        }
+        if (!seenOnce(d.id)) return;
+        if (this.cfg.getBool('debug.log-events', false)) {
+            log.info('[HuHoBotPenguin] 收到单聊消息：user=' + d.user_openid + ' content=' + JSON.stringify(d.content || ''));
+        }
+        this.emit('privateMessage', {
+            id: d.id,
+            userOpenId: d.user_openid,
+            content: d.content || '',
+            timestamp: d.timestamp
+        });
+    }
+
+    /** 用户申请加群（GROUP_JOIN_REQUEST，机器人需为群管理员）。 */
+    _onJoinRequest(d) {
+        if (!d || !d.group_openid || !d.member_openid) {
+            log.warn('[HuHoBotPenguin] 入群申请事件缺少 group_openid/member_openid 字段：' + JSON.stringify(d || {}).slice(0, 300));
+            return;
+        }
+        if (!seenOnce('jr:' + (d.join_request_id || (d.member_openid + ':' + (d.apply_at || ''))))) return;
+        if (this.cfg.getBool('debug.log-events', false)) {
+            log.info('[HuHoBotPenguin] 收到入群申请：group=' + d.group_openid + ' member=' + d.member_openid +
+                ' username=' + (d.username || '-'));
+        }
+        this.emit('joinRequest', {
+            groupOpenId: d.group_openid,
+            memberOpenid: d.member_openid,
+            username: d.username || '',
+            joinRequestId: d.join_request_id || '',
+            applyAt: d.apply_at || '',
+            verifyMessage: (d.verify_info && d.verify_info.verify_message) || ''
+        });
     }
 
     // ---- access_token ----
@@ -481,7 +547,11 @@ class QQClient extends EventEmitter {
         } else {
             body.content = content;
         }
-        if (msgId) body.msg_id = msgId;
+        if (msgId) {
+            // 被动消息每条 msg_id 最多回复 5 次，必须递增 msg_seq 否则会被官方去重拦截
+            body.msg_id = msgId;
+            body.msg_seq = nextMsgSeq(msgId);
+        }
         return requestJson({
             host: this.backendHost,
             path: '/v2/groups/' + id + '/messages',
@@ -493,6 +563,130 @@ class QQClient extends EventEmitter {
             },
             body
         });
+    }
+
+    /**
+     * 发送单聊消息（POST /v2/users/{user_openid}/messages）。
+     * 主动消息有频控与每日上限；带 msgId 为被动回复（60 分钟内有效，每条最多回 4 次）。
+     * @param {string} userOpenId 用户 OpenID
+     * @param {string} content 文本内容
+     * @param {string} [msgId] 被动回复的消息 ID（C2C_MESSAGE_CREATE 的 d.id）
+     * @param {number} [msgType] 0=文本 2=Markdown
+     */
+    sendPrivateMessage(userOpenId, content, msgId, msgType = 0) {
+        const task = this._enqueue(() => this._sendPrivateMessage(userOpenId, content, msgId, msgType));
+        task.catch((err) => {
+            log.error('[HuHoBotPenguin] 单聊消息发送失败 user=' + userOpenId + '：' + err.message);
+        });
+        return task;
+    }
+
+    async _sendPrivateMessage(userOpenId, content, msgId, msgType = 0) {
+        const token = await this.getAccessToken();
+        const body = { msg_type: msgType };
+        if (msgType === 2) {
+            body.markdown = { content };
+        } else {
+            body.content = content;
+        }
+        if (msgId) {
+            body.msg_id = msgId;
+            body.msg_seq = nextMsgSeq(msgId);
+        }
+        return requestJson({
+            host: this.backendHost,
+            path: '/v2/users/' + encodeURIComponent(userOpenId) + '/messages',
+            method: 'POST',
+            headers: {
+                'Authorization': 'QQBot ' + token,
+                'X-Union-Appid': this.appId,
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body
+        });
+    }
+
+    /** 设置群成员禁言（POST /v2/groups/{group_openid}/restrict_chat_setting）。机器人需群管理员，最长 30 天。 */
+    muteMember(groupOpenId, memberOpenid, durationSeconds) {
+        const seconds = Math.max(1, Number(durationSeconds) || 0);
+        const expire = new Date(Date.now() + seconds * 1000).toISOString();
+        return this._restrictChatSetting(groupOpenId, [
+            { op: 'add', member_openid: memberOpenid, mute_expire_at: expire }
+        ]);
+    }
+
+    /** 解除群成员禁言。 */
+    unmuteMember(groupOpenId, memberOpenid) {
+        return this._restrictChatSetting(groupOpenId, [
+            { op: 'del', member_openid: memberOpenid, mute_expire_at: '' }
+        ]);
+    }
+
+    _restrictChatSetting(groupOpenId, members) {
+        return this.getAccessToken().then((token) => requestJson({
+            host: this.backendHost,
+            path: '/v2/groups/' + encodeURIComponent(groupOpenId) + '/restrict_chat_setting',
+            method: 'POST',
+            headers: {
+                'Authorization': 'QQBot ' + token,
+                'X-Union-Appid': this.appId,
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: { members },
+            label: 'restrict_chat_setting'
+        }));
+    }
+
+    /** 拉取入群申请列表（GET /v2/groups/{group_openid}/join_request_list），返回 Promise<{list, next_cursor}>。 */
+    getJoinRequests(groupOpenId, cursor, limit) {
+        const q = [];
+        if (cursor) q.push('cursor=' + encodeURIComponent(cursor));
+        if (limit) q.push('limit=' + Number(limit));
+        return this.getAccessToken().then((token) => requestJson({
+            host: this.backendHost,
+            path: '/v2/groups/' + encodeURIComponent(groupOpenId) + '/join_request_list' + (q.length ? '?' + q.join('&') : ''),
+            method: 'GET',
+            headers: {
+                'Authorization': 'QQBot ' + token,
+                'X-Union-Appid': this.appId
+            },
+            label: 'join_request_list'
+        }));
+    }
+
+    /** 审批入群申请（POST /v2/groups/{group_openid}/approval_join_request/{member_openid}）。 */
+    approveJoinRequest(groupOpenId, memberOpenid, options) {
+        const o = options || {};
+        const body = { op: o.approve === false ? 'decline' : 'approve' };
+        if (o.joinRequestId) body.join_request_id = o.joinRequestId;
+        if (o.rejectReason) body.reject_reason = o.rejectReason;
+        if (o.addToBlacklist) body.add_to_member_blacklist = true;
+        return this.getAccessToken().then((token) => requestJson({
+            host: this.backendHost,
+            path: '/v2/groups/' + encodeURIComponent(groupOpenId) + '/approval_join_request/' + encodeURIComponent(memberOpenid),
+            method: 'POST',
+            headers: {
+                'Authorization': 'QQBot ' + token,
+                'X-Union-Appid': this.appId,
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body,
+            label: 'approval_join_request'
+        }));
+    }
+
+    /** 获取机器人信息（GET /users/@me），返回 Promise<{id, username, avatar}>。 */
+    getBotInfo() {
+        return this.getAccessToken().then((token) => requestJson({
+            host: this.backendHost,
+            path: '/users/@me',
+            method: 'GET',
+            headers: {
+                'Authorization': 'QQBot ' + token,
+                'X-Union-Appid': this.appId
+            },
+            label: 'users/@me'
+        }));
     }
 
     // ---- 重连 ----
