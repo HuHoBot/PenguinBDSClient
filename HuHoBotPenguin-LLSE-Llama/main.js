@@ -14,6 +14,7 @@ const { CustomCommands } = require('./lib/customcommands');
 const { handleGroupMessage } = require('./lib/commands');
 const { Bot } = require('./lib/bot');
 const { getSharedAdapter } = require('./lib/adapter');
+const { AddonManager } = require('./lib/addonmanager');
 const { TickMonitor } = require('./lib/tickmonitor');
 const { Agent } = require('./lib/agent');
 const { WebUI } = require('./lib/webui');
@@ -101,6 +102,10 @@ function main() {
     client.on('privateMessage', (message) => adapter.firePrivateMsg(message));
     client.on('joinRequest', (request) => adapter.fireJoinRequest(request));
 
+    // addons/ 目录附属插件加载（SparkBridge3 模式；features.load-addons 默认开）
+    const addonMgr = new AddonManager(adapter, configLoader.root ? configLoader.root() : process.cwd());
+    if (addonMgr.isEnabled(config)) addonMgr.loadAll();
+
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
     // 两路共用 forwardGameMessage，并有 1.5s 去重，避免同一条消息双发。
@@ -185,7 +190,7 @@ function main() {
         }
     }
 
-    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, aliveFlag, webui };
+    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, addonMgr, aliveFlag, webui };
 }
 
 /**
@@ -234,6 +239,10 @@ function registerAdapterExports(adapter) {
 /** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
 function stopRuntime() {
     if (!runtime) return false;
+    // 先卸载 addons/ 目录附属插件（撤销其监听器/命令/元数据），再走标准停止流程
+    if (runtime.addonMgr) {
+        try { runtime.addonMgr.unloadAll(); } catch (e) { /* ignore */ }
+    }
     // 先自禁用旧监听器（mc.removeListener 在部分引擎上无效，靠标志位兜底）
     if (runtime.aliveFlag) runtime.aliveFlag.alive = false;
     if (runtime.client) runtime.client.stop();
@@ -268,7 +277,14 @@ function handleConsoleCommand(args) {
     if (sub === 'info') {
         return '平台：LeviLamina（LLSE Node.js 后端）\n版本：v' + VERSION + '\n模式：直连 QQ 正式环境';
     }
-    return '用法：huhobot reload | huhobot info';
+    if (sub === 'addons') {
+        if (!runtime || !runtime.addonMgr) return '附属插件加载器未运行';
+        const names = runtime.addonMgr.getNames();
+        return names.length
+            ? '已加载附属插件（' + names.length + ' 个）：' + names.join('、')
+            : '未加载任何附属插件（addons 目录为空或不存在）';
+    }
+    return '用法：huhobot reload | huhobot info | huhobot addons';
 }
 
 /** 重载插件：停止当前实例并按最新配置重启（供控制台命令与 WebUI 共用）。 */

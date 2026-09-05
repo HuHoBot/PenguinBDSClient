@@ -1,0 +1,6 @@
+{
+  "name": "demo-addon",
+  "version": "1.0.0",
+  "description": "演示附属插件：addons 目录加载 / 事件 / 命令 API 测试",
+  "author": "Beeeee"
+}
