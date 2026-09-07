@@ -27,6 +27,11 @@ const crypto = require('crypto');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
+/** 内联 SVG 图标（lucide 风格 stroke，零外部依赖）。 */
+const I = {"dashboard":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>","wrench":"<path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"/>","blocks":"<rect x=\"3\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"3\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/>","chat":"<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>","plug":"<path d=\"M12 22v-5\"/><path d=\"M9 8V2\"/><path d=\"M15 8V2\"/><path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z\"/>","gear":"<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>","zap":"<polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"/>","trash":"<path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"/><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/>","plus":"<path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>","send":"<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>","save":"<path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/>"};
+const iJson = JSON.stringify(I).replace(/</g, '\\u003c');
+const svg = (name) => '<svg class="ic" viewBox="0 0 24 24">' + I[name] + '</svg>';
+
 /** 内置登录会话：内存 token -> 过期时间（简单会话，重启即失效）。 */
 let sessions = {};  // token -> expireAt
 
@@ -314,7 +319,7 @@ class WebUI {
     /** 内嵌单页 HTML：登录页 + 深色侧边栏多页面管理面板（参考 SparkBridge3 后台布局）。 */
     _html() {
         const fields = [
-            { g: 'AI 设置', t: 'ai', icon: '🧠', fields: [
+            { g: 'AI 设置', t: 'ai', fields: [
                 { p: 'ai.enabled', l: '启用 AI', typ: 'bool' },
                 { p: 'ai.base-url', l: '接口地址', ph: 'https://api.openai.com/v1' },
                 { p: 'ai.api-key', l: 'API 密钥', typ: 'password' },
@@ -325,30 +330,30 @@ class WebUI {
                 { p: 'ai.context-limit', l: '上下文条数', typ: 'number' },
                 { p: 'ai.timeout', l: '超时(ms)', typ: 'number' }
             ]},
-            { g: 'WebUI', t: 'webui', icon: '🌐', fields: [
+            { g: 'WebUI', t: 'webui', fields: [
                 { p: 'webui.enabled', l: '启用 WebUI', typ: 'bool' },
                 { p: 'webui.host', l: '监听地址', typ: 'select', opts: ['127.0.0.1', '0.0.0.0'], ph: '127.0.0.1(仅本机) / 0.0.0.0(外网)' },
                 { p: 'webui.port', l: '端口', typ: 'number' },
                 { p: 'webui.username', l: '用户名' },
                 { p: 'webui.password', l: '密码', typ: 'password' }
             ]},
-            { g: '管理员', t: 'admin', icon: '👑', fields: [
+            { g: '管理员', t: 'admin', fields: [
                 { p: 'admin.mode', l: '管理员判定方式', typ: 'select', opts: ['both', 'qq', 'manual'], ph: 'both' },
                 { p: 'admin.openids', l: '群管理员 OpenID', typ: 'csv', ph: '逗号分隔，配置群命令管理员' },
                 { p: 'ai.admin-openids', l: 'AI 执行命令 OpenID', typ: 'csv', ph: '逗号分隔，授权 AI 执行控制台命令' }
             ]},
-            { g: '服务器', t: 'server', icon: '🗄️', fields: [
+            { g: '服务器', t: 'server', fields: [
                 { p: 'serverName', l: '服务器名' },
                 { p: 'bot.name', l: '机器人名' },
                 { p: 'bot.app-id', l: 'AppID' },
                 { p: 'bot.secret', l: 'Secret', typ: 'password' }
             ]},
-            { g: '聊天格式', t: 'chat', icon: '💬', fields: [
+            { g: '聊天格式', t: 'chat', fields: [
                 { p: 'chat-format.from-game', l: '游戏→群' },
                 { p: 'chat-format.from-group', l: '群→游戏' },
                 { p: 'chat-format.start-with', l: '转发前缀(空=全部)' }
             ]},
-            { g: 'Markdown / MOTD', t: 'md', icon: '📊', fields: [
+            { g: 'Markdown / MOTD', t: 'md', fields: [
                 { p: 'motd.use-markdown', l: 'Markdown 总开关', typ: 'bool' },
                 { p: 'motd.ip', l: 'MOTD 状态图 IP' },
                 { p: 'motd.port', l: 'MOTD 端口', typ: 'number' },
@@ -371,7 +376,13 @@ a{color:#60a5fa;text-decoration:none}
 .nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:#94a3b8;cursor:pointer;font-size:14px}
 .nav:hover{background:#1a2040;color:#e2e8f0}
 .nav.active{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:600}
-.nav .ico{width:20px;text-align:center}
+svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav .ico{width:20px;display:flex;align-items:center;justify-content:center}
+.btn svg.ic{width:14px;height:14px;margin-right:5px;vertical-align:-3px}
+h2 svg.ic{width:18px;height:18px;color:#a5b4fc}
+.iconbtn{padding:5px 8px;border:1px solid #2a3358;border-radius:8px;background:#1a2040;color:#f87171;cursor:pointer;display:inline-flex;align-items:center}
+.iconbtn:hover{background:#2a1a25}
+.iconbtn svg.ic{width:14px;height:14px}
 .side .foot{margin-top:auto;padding-top:14px;border-top:1px solid #1e2744}
 .side .foot button{width:100%;padding:9px;border-radius:8px;border:1px solid #2a3358;background:#1a2040;color:#cbd5e1;cursor:pointer;font-size:13px}
 .side .foot button:hover{background:#232b4a}
@@ -443,12 +454,12 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 <div id="app" style="display:none" class="layout">
   <aside class="side" id="side">
     <div class="logo">🐧 HuHoBotPenguin<br>Llama</div>
-    <div class="nav active" onclick="showPage('overview',this)"><span class="ico">📈</span>总览</div>
-    <div class="nav" onclick="showPage('tools',this)"><span class="ico">🛠️</span>AI 工具</div>
-    <div class="nav" onclick="showPage('skills',this)"><span class="ico">🧩</span>Skill 管理</div>
-    <div class="nav" onclick="showPage('chat',this)"><span class="ico">💬</span>AI 对话</div>
-    <div class="nav" onclick="showPage('addons',this)"><span class="ico">🔌</span>附属插件</div>
-    <div class="nav" onclick="showPage('config',this)"><span class="ico">⚙️</span>配置</div>
+    <div class="nav active" onclick="showPage('overview',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>总览</div>
+    <div class="nav" onclick="showPage('tools',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>AI 工具</div>
+    <div class="nav" onclick="showPage('skills',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>Skill 管理</div>
+    <div class="nav" onclick="showPage('chat',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>AI 对话</div>
+    <div class="nav" onclick="showPage('addons',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></svg></span>附属插件</div>
+    <div class="nav" onclick="showPage('config',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>配置</div>
     <div class="foot"><button onclick="logout()">退出登录</button></div>
   </aside>
   <div class="main">
@@ -464,7 +475,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
           <div class="stat"><div class="num" id="st_ver">—</div><div class="lab">配置版本</div></div>
           <div class="stat"><div class="num">3</div><div class="lab">可用工具</div></div>
         </div>
-        <div class="card"><h2>⚡ 快捷开关</h2>
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>快捷开关</h2>
           <div class="swp">
             <label class="sw" id="sw_ai"><input type="checkbox" onchange="quickToggle(this,'ai.enabled')"><span class="cap">AI 开关</span></label>
             <label class="sw" id="sw_md"><input type="checkbox" onchange="quickToggle(this,'motd.use-markdown')"><span class="cap">Markdown</span></label>
@@ -473,7 +484,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
       </div>
       <!-- 工具 -->
       <div class="pg" id="pg_tools">
-        <div class="card"><h2>🛠️ AI 可用工具</h2>
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>AI 可用工具</h2>
           <div class="tools">
             <div class="tool"><div class="tk">query_online</div><div class="td">查询在线玩家</div><span class="tag pub">公开</span></div>
             <div class="tool"><div class="tk">query_whitelist</div><div class="td">查询白名单</div><span class="tag pub">公开</span></div>
@@ -485,7 +496,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
       <!-- Skill 管理 -->
       <div class="pg" id="pg_skills">
         <div class="card">
-          <h2>🛠️ 内置工具（固定，不可删）</h2>
+          <h2><svg class="ic" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>内置工具（固定，不可删）</h2>
           <div class="tools">
             <div class="tool"><div class="tk">query_online</div><div class="td">查询在线玩家</div><span class="tag pub">公开</span></div>
             <div class="tool"><div class="tk">query_whitelist</div><div class="td">查询白名单</div><span class="tag pub">公开</span></div>
@@ -494,9 +505,9 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
           <div class="hint" style="margin-top:10px">内置工具始终可用；"execute_command" 仅 ai.admin-openids 中管理员可调。</div>
         </div>
         <div class="card">
-          <h2>🧩 自定义 Skill
-            <button class="btn primary" onclick="addSkillRow()" style="margin-left:auto">+ 新增</button>
-            <button class="btn" onclick="saveSkills()">保存</button>
+          <h2><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>自定义 Skill
+            <button class="btn primary" onclick="addSkillRow()" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>新增</button>
+            <button class="btn" onclick="saveSkills()"><svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存</button>
           </h2>
           <div class="hint" style="margin-bottom:10px">自定义 AI 可调用的 Skill：AI 调用后会在控制台执行你配置的命令。命令模板用 {0}、{1}… 作为参数占位（由 AI 按顺序填写）；permission 填 1 表示仅 ai.admin-openids 管理员可调用。</div>
           <div style="margin-bottom:10px">
@@ -514,16 +525,16 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
       </div>
       <!-- AI 对话 -->
       <div class="pg" id="pg_chat">
-        <div class="card"><h2>💬 AI 对话测试</h2>
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>AI 对话测试</h2>
           <textarea id="chat_in" placeholder="输入消息，例如：查一下现在谁在线、给我查下白名单…"></textarea>
-          <button class="btn primary" onclick="sendChat()" style="margin-top:8px">发 送</button>
+          <button class="btn primary" onclick="sendChat()" style="margin-top:8px"><svg class="ic" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>发送</button>
           <pre class="out" id="chat_out"></pre>
         </div>
       </div>
       <!-- 附属插件 -->
       <div class="pg" id="pg_addons">
-        <div class="card"><h2>🔌 已加载的附属插件
-          <button class="btn" onclick="loadAddons()" style="margin-left:auto">刷新</button>
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></svg>已加载的附属插件
+          <button class="btn" onclick="loadAddons()" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>刷新</button>
         </h2>
           <div id="addonList"></div>
           <div class="hint" style="margin-top:10px">附属插件在其加载时调用 <code>registerAddon(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里；群内指令「已加载插件」可查看同样内容。</div>
@@ -532,9 +543,9 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
       <!-- 配置 -->
       <div class="pg" id="pg_config">
         <div class="card">
-          <h2>⚙️ 配置
-            <button class="btn" onclick="loadCfg()" style="margin-left:auto">重新加载</button>
-            <button class="btn primary" onclick="saveCfg()">保存并生效</button>
+          <h2><svg class="ic" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>配置
+            <button class="btn" onclick="loadCfg()" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>重新加载</button>
+            <button class="btn primary" onclick="saveCfg()"><svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存并生效</button>
             <button class="btn" onclick="rawToggle()">高级(JSON)</button>
           </h2>
           <div id="formWrap"></div>
@@ -548,6 +559,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 
 <script>
 const FIELDS = ${fieldsJson};
+const I = ${iJson};
 const PG_TITLES = {overview:'总览',tools:'AI 工具',skills:'Skill 管理',chat:'AI 对话',addons:'附属插件',config:'配置'};
 let CFG = {};
 async function j(url,opt){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt});return {ok:r.ok,data:await r.json().catch(()=>({}))};}
@@ -558,7 +570,7 @@ function toggleSide(){document.getElementById('side').classList.toggle('open');}
 async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('l_msg').textContent='';bootstrap();}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
 async function logout(){await j('/api/logout',{method:'POST'});location.reload();}
 async function status(){const r=await j('/api/status');if(r.ok){const d=r.data;const el=document.getElementById('st_ai');el.textContent=d.aiEnabled?'AI ● 已启用':'AI ○ 未启用';el.className='badge '+(d.aiEnabled?'on':'off');document.getElementById('st_ver').textContent='v'+(d.configVersion||'?');}}
-function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(grp.icon||'')+' '+grp.g+'</h3>';grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
+function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
 function fillForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;const v=g(f.p,CFG);if(f.typ==='bool'){el.value=String(!!v);}else if(f.typ==='csv'){el.value=Array.isArray(v)?v.join(', '):v||'';}else{el.value=v===undefined||v===null?'':v;}}));}
 function collectForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;let v;if(f.typ==='bool'){v=el.value==='true';}else if(f.typ==='number'){v=isNaN(Number(el.value))||el.value===''?undefined:Number(el.value);}else if(f.typ==='csv'){v=el.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);}else{v=el.value;}if(v!==undefined&&v!=='')s(f.p,v,CFG);}));return CFG;}
 async function loadCfg(){const r=await j('/api/config');if(!r.ok){setMsg('err',r.data.error||'加载失败');return;}CFG=r.data.config;buildForm();fillForm();document.getElementById('rawCfg').value=JSON.stringify(CFG,null,2);updateSwitches();renderSkills();setMsg('done','已加载');}
@@ -583,7 +595,7 @@ function skillRowHtml(s,i){const div=document.createElement('div');div.className
   '<input data-sf="key" value="'+(s.key||'')+'" placeholder="key(唯一)" style="width:140px">'+
   '<input data-sf="name" value="'+(s.name||'')+'" placeholder="名称" style="width:120px">'+
   '<select data-sf="permission" style="width:90px"><option value="0"'+(s.permission===1?'':' selected')+'>公开</option><option value="1"'+(s.permission===1?' selected':'')+'>仅管理员</option></select>'+
-  '<button onclick="this.parentElement.parentElement.remove()">🗑</button></div>'+
+   '<button class="iconbtn" title="删除" onclick="this.parentElement.parentElement.remove()"><svg class="ic" viewBox="0 0 24 24">'+I.trash+'</svg></button></div>'+
   '<div style="margin-top:6px"><input data-sf="desc" value="'+(s.desc||'')+'" placeholder="描述(给AI看)" style="width:100%"></div>'+
   '<div style="margin-top:6px"><input data-sf="command" value="'+(s.command||'')+'" placeholder="命令模板，如 kick {0} 你被移除了" style="width:100%"></div>';
   return div;}
