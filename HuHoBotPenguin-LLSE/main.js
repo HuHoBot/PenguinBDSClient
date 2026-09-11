@@ -110,7 +110,7 @@ function main() {
         (globalScope.__huohoBotPenguinRecentForwards = []);
     function forwardGameMessage(playerName, rawMsg) {
         if (!bot) return;
-        const startWith = config.getString('chat-format.start-with', '');
+        const startWith = config.getString('chat-format.start-with', '#');
         const raw = String(rawMsg || '');
         if (!raw || (startWith && !raw.startsWith(startWith))) return;
         const content = startWith ? raw.slice(startWith.length) : raw;

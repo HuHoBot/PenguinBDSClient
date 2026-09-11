@@ -49,7 +49,7 @@ const DEFAULT_VALUES = {
     'chat-format.from-game': '[游戏] {name}: {message}',
     'chat-format.from-group': '[QQ] {name}: {message}',
     'chat-format.post-chat': true,
-    'chat-format.start-with': '',
+    'chat-format.start-with': '#',
 
     'whitelist.add-command': 'whitelist add {name}',
     'whitelist.del-command': 'whitelist remove {name}',
@@ -217,10 +217,11 @@ function load() {
     }
 
     const flat = flatten(nested, '', {});
+    // config-version 必须在 fillMissing 之前读取：默认值补全会写入新版本号，覆盖旧值。
+    const previousVersion = typeof flat['config-version'] === 'number' ? flat['config-version'] : 0;
     let changed = migratePostPrefix(flat);
     changed = fillMissing(flat) || changed;
 
-    const previousVersion = typeof flat['config-version'] === 'number' ? flat['config-version'] : 0;
     if (previousVersion !== CONFIG_VERSION) {
         flat['config-version'] = CONFIG_VERSION;
         changed = true;
@@ -232,7 +233,11 @@ function load() {
         } catch (e) {
             log.warn('[HuHoBotPenguin] 配置写入失败：' + e.message);
         }
-        log.info('[HuHoBotPenguin] 配置文件已升级到版本 ' + CONFIG_VERSION + '（旧版本：' + previousVersion + '）');
+        if (previousVersion === 0) {
+            log.info('[HuHoBotPenguin] 已生成默认配置文件（版本 ' + CONFIG_VERSION + '）');
+        } else if (previousVersion !== CONFIG_VERSION) {
+            log.info('[HuHoBotPenguin] 配置文件已升级到版本 ' + CONFIG_VERSION + '（旧版本：' + previousVersion + '）');
+        }
     }
 
     return new Config(flat);
