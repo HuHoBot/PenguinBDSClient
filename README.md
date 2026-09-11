@@ -4,12 +4,29 @@
 
 📚 **文档站**：<https://beeeee-really.github.io/huhobot-docs/>（文档源码与部署在 [Beeeee-really/huhobot-docs](https://github.com/Beeeee-really/huhobot-docs) 仓库维护）
 
-该仓库包含两个版本，按需二选一部署到 `plugins/` 下：
+## 仓库结构
+
+本仓库采用**共享 lib + 版本独立入口**的 monorepo 结构：
+
+```
+lib/          ← 所有公共模块（12 个 .js 文件）
+standard/     ← 标准版独有文件（main.js / config.js / commands.js / manifest.json / README.md）
+llama/        ← Llama 版独有文件（main.js / config.js / commands.js / agent.js / webui.js / ...）
+addons/       ← 附属插件（两版共用）
+Markdown/     ← 模板文件（两版共用）
+build.py      ← 构建脚本
+```
+
+公共模块只维护一份，两版通过薄 wrapper 引入各自的差异（配置默认值、AI Agent 兜底等）。
+
+## 两个版本
+
+按需二选一部署到 `plugins/` 下：
 
 | 目录 | 版本 | 说明 |
 |---|---|---|
-| [`HuHoBotPenguin-LLSE/`](./HuHoBotPenguin-LLSE/README.md) | **标准版** | QQ ↔ BDS 双向转发、20+ 群指令、MOTD 状态图、Markdown 卡片 |
-| [`HuHoBotPenguin-LLSE-Llama/`](./HuHoBotPenguin-LLSE-Llama/README.md) | **AI 版（Llama）** | 标准版全部功能 + 内置 LLM AI 助理（无需 AstrBot）、function calling 工具、自定义 Skill、WebUI 管理面板 |
+| [`standard/`](./standard/README.md) | **标准版** | QQ ↔ BDS 双向转发、20+ 群指令、MOTD 状态图、Markdown 卡片 |
+| [`llama/`](./llama/README.md) | **AI 版（Llama）** | 标准版全部功能 + 内置 LLM AI 助理（无需 AstrBot）、function calling 工具、自定义 Skill、WebUI 管理面板 |
 
 > 不需要 AI 请使用标准版；想要 AI 对话 / 管理面板请用 AI 版。
 
@@ -32,6 +49,18 @@
 - **WebUI 管理面板**：深色侧边栏多页面（状态 / 工具 / Skill / AI 对话 / 配置）
 
 详见各自 `README.md`。
+
+## 构建
+
+```bash
+python build.py          # 构建两版到 dist/
+python build.py standard # 仅构建标准版
+python build.py llama    # 仅构建 Llama 版
+```
+
+输出：
+- `dist/HuHoBotPenguin-LLSE-<版本>.zip`
+- `dist/HuHoBotPenguin-LLSE-Llama-<版本>.zip`
 
 ## 安装
 
