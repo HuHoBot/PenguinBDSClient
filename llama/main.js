@@ -164,7 +164,7 @@ function main() {
     const onPlayerJoinHandle = mc.listen('onJoin', (player) => notifyJoinLeave(player, true));
     const onPlayerLeftHandle = mc.listen('onLeft', (player) => notifyJoinLeave(player, false));
 
-    // TPS/MSPT 统计（查在线命令输出用；onTick 不可用时静默降级）
+    // TPS 统计（查在线命令输出用；onTick 不可用时静默降级）
     const tickMonitor = new TickMonitor();
     bot.tick = tickMonitor;
     tickMonitor.start();
