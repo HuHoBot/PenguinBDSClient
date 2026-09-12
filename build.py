@@ -21,12 +21,12 @@ VERSION = '1.3.1'
 VERSIONS = {
     'standard': {
         'src_dir': 'standard',
-        'zip_name': f'HuHoBotPenguin-LLSE-{VERSION}.zip',
+        'zip_name': 'HuHoBotPenguin-LLSE.zip',
         'plugin_dir': 'HuHoBotPenguin-LLSE',
     },
     'llama': {
         'src_dir': 'llama',
-        'zip_name': f'HuHoBotPenguin-LLSE-Llama-{VERSION}.zip',
+        'zip_name': 'HuHoBotPenguin-LLSE-Llama.zip',
         'plugin_dir': 'HuHoBotPenguin-LLSE-Llama',
     },
 }
