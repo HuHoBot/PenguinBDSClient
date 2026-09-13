@@ -199,7 +199,9 @@ function registerAdapterExports(adapter) {
     ll.exports((id) => adapter.offRecvMsg(id), ns, 'offRecvMsg');
     ll.exports((fn) => adapter.onBotCommand(fn), ns, 'onBotCommand');
     ll.exports((id) => adapter.offBotCommand(id), ns, 'offBotCommand');
-    ll.exports((key, command, permission, pushMenu) => adapter.registerBotCommand(key, command, permission, pushMenu), ns, 'registerBotCommand');
+    ll.exports(function () {
+        return adapter.registerBotCommand.apply(adapter, arguments);
+    }, ns, 'registerBotCommand');
     ll.exports((key) => adapter.unregisterBotCommand(key), ns, 'unregisterBotCommand');
     ll.exports((groupOpenId, openId) => adapter.getAuthenticatedQq(groupOpenId, openId), ns, 'getAuthenticatedQq');
     ll.exports((groupOpenId, openId) => adapter.getBindingName(groupOpenId, openId), ns, 'getBindingName');

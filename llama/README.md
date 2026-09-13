@@ -162,6 +162,7 @@ module.exports = (addon) => {
 | `onBotCommand(fn)` | 监听运行时命令命中（`msgPack.commandKey` / `commandArguments` 已填充），返回监听器 id |
 | `offBotCommand(id)` | 注销命令监听 |
 | `registerBotCommand(key, command, permission, pushMenu)` | 注册运行时自定义命令（`permission > 0` 仅管理员触发）；`pushMenu=true` 时同步到 QQ 官方群聊指令面板 |
+| `registerBotCommand(addonName, key, command, permission, pushMenu)` | 5 参版：关联到已注册扩展（`/附属插件` 显示命令数）；须先 `registerAddon` |
 | `unregisterBotCommand(key)` | 注销运行时命令 |
 | `getAuthenticatedQq(groupOpenId, openId)` | 查询认证状态；官方机器人拿不到真实 QQ 号，已认证返回 OpenID，未认证返回 `null` |
 | `getBindingName(groupOpenId, openId)` | 查询白名单绑定游戏名，无绑定返回 `null` |
@@ -180,7 +181,7 @@ module.exports = (addon) => {
 | `sendPrivateText(userOpenId, text[, msgId])` | 发送单聊文本消息 |
 | `muteMember(groupOpenId, memberOpenid, durationSeconds)` / `unmuteMember(groupOpenId, memberOpenid)` | 群成员禁言 / 解除（Promise，机器人需群管理员，最长 30 天） |
 | `getJoinRequests(groupOpenId[, cursor, limit])` / `approveJoinRequest(groupOpenId, memberOpenid, options)` | 入群申请列表 / 审批（Promise；options：{approve, joinRequestId, rejectReason, addToBlacklist}） |
-| `registerAddon(name, version, description, author)` | 注册附属插件元数据（WebUI「附属插件」页与「已加载插件」指令展示用；重复调用覆盖更新） |
+| `registerAddon(name, version, description, author)` | 注册附属插件元数据（WebUI「附属插件」页与「已加载插件」指令展示用；重复调用覆盖更新；`version` 省略时默认 `"1.0.0"`） |
 | `unregisterAddon(name)` | 注销附属插件元数据 |
 | `getAddons()` | 已注册附属插件列表（数组） |
 
