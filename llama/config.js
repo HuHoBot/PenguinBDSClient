@@ -6,7 +6,7 @@
 
 const { load, root, Config, flatten, nest } = require('./lib/config');
 
-const CONFIG_VERSION = 7;
+const CONFIG_VERSION = 8;
 
 const COMMAND_NAMES = [
     '查信息',
@@ -60,6 +60,10 @@ const DEFAULT_VALUES = {
     'features.push-menu': true,
     'features.online-tps': true,
     'features.load-addons': true,
+
+    'addon-center.enabled': true,
+    'addon-center.api-base': 'https://addon.txssb.cn/api.php',
+    'addon-center.filter-lse-only': true,
 
     'motd.ip': '',
     'motd.port': 19132,

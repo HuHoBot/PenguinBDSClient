@@ -8,6 +8,7 @@
  */
 
 const configLoader = require('./config');
+const path = require('path');
 const { State } = require('./lib/state');
 const { QQClient } = require('./lib/qqclient');
 const { CustomCommands } = require('./lib/customcommands');
@@ -16,6 +17,7 @@ const { Bot } = require('./lib/bot');
 const { getSharedAdapter } = require('./lib/adapter');
 const { AddonManager } = require('./lib/addonmanager');
 const { TickMonitor } = require('./lib/tickmonitor');
+const addonCenter = require('./lib/addoncenter');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
@@ -186,7 +188,7 @@ function main() {
         }
     }
 
-    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, addonMgr, aliveFlag };
+    return { client, onChatHandle, onPlayerJoinHandle, onPlayerLeftHandle, tickMonitor, addonMgr, aliveFlag, config };
 }
 
 /**
@@ -263,7 +265,7 @@ function startRuntime() {
     runtime = main();
 }
 
-/** 控制台命令处理：huhobot reload / huhobot info。 */
+/** 控制台命令处理：huhobot reload / info / addons / center / install。 */
 function handleConsoleCommand(args) {
     const sub = String((args && args[0]) || '').toLowerCase();
     if (sub === 'reload') {
@@ -282,7 +284,124 @@ function handleConsoleCommand(args) {
             ? '已加载附属插件（' + names.length + ' 个）：' + names.join('、')
             : '未加载任何附属插件（addons 目录为空或不存在）';
     }
-    return '用法：huhobot reload | huhobot info | huhobot addons';
+    if (sub === 'center' || sub === 'list') {
+        return runCenterList(args.slice(1));
+    }
+    if (sub === 'install') {
+        return runCenterInstall(args.slice(1));
+    }
+    if (sub === 'uninstall') {
+        return runUninstall(args.slice(1));
+    }
+    return '用法：huhobot reload | info | addons | center [搜索词] | install <插件ID> [force] | uninstall <插件名>';
+}
+
+function centerConfig() {
+    const cfg = (runtime && runtime.config) || (runtime && runtime.bot && runtime.bot.config) || null;
+    const enabled = cfg ? cfg.getBool('addon-center.enabled', true) : true;
+    const apiBase = cfg ? cfg.getString('addon-center.api-base', '') : '';
+    return {
+        enabled,
+        apiBase: apiBase || addonCenter.DEFAULT_API,
+        installRoot: path.join(configLoader.root(), 'addons')
+    };
+}
+
+function runCenterList(queryParts) {
+    const c = centerConfig();
+    if (!c.enabled) return '插件中心已关闭（addon-center.enabled=false）';
+    const search = (queryParts || []).join(' ').trim();
+    log.info('[HuHoBotPenguin] 正在查询插件中心' + (search ? '：' + search : '') + '…');
+    addonCenter.listPlugins(c.apiBase, { search }).then((data) => {
+        const plugins = data.plugins || [];
+        if (!plugins.length) {
+            log.info('[HuHoBotPenguin] 插件中心没有匹配结果');
+            return;
+        }
+        const lines = ['插件中心共 ' + plugins.length + ' 个结果：'];
+        plugins.slice(0, 20).forEach((p, i) => {
+            lines.push((i + 1) + '. ' + p.name + ' v' + (p.version || '?') +
+                ' [' + p.id + '] ' + (p.author || '') +
+                (p.downloads != null ? ' 下载' + p.downloads : ''));
+        });
+        log.info('[HuHoBotPenguin]\n' + lines.join('\n'));
+        log.info('[HuHoBotPenguin] 安装：huhobot install <插件ID> [force]');
+    }).catch((e) => {
+        log.error('[HuHoBotPenguin] 查询插件中心失败：' + e.message);
+    });
+    return '正在查询插件中心…（结果稍后打印到控制台）';
+}
+
+function runCenterInstall(parts) {
+    const c = centerConfig();
+    if (!c.enabled) return '插件中心已关闭（addon-center.enabled=false）';
+    if (!runtime || !runtime.addonMgr) return '附属插件加载器未运行';
+    const id = String((parts && parts[0]) || '').trim();
+    if (!id) return '用法：huhobot install <插件ID> [force]';
+    const force = (parts || []).slice(1).some((a) => a === 'force' || a === '强制');
+    log.info('[HuHoBotPenguin] 开始从插件中心安装 ' + id + (force ? '（force）' : '') + '…');
+
+    (async () => {
+        // 预检：非 LSE / 已安装同版本（与 WebUI 一致）
+        let meta = null;
+        try {
+            const d = await addonCenter.pluginDetail(c.apiBase, id);
+            meta = d && d.plugin ? d.plugin : d;
+        } catch (e) {
+            log.warn('[HuHoBotPenguin] 获取插件详情失败（继续下载）：' + e.message);
+        }
+        if (meta && !addonCenter.isLsePlugin(meta)) {
+            log.error('[HuHoBotPenguin] 拒绝安装：该插件不是 LLSE/LSE 类型（server_type=' +
+                (meta.server_type || '?') + '）');
+            return;
+        }
+        const installed = runtime.addonMgr.listInstalledMeta();
+        const norm = (s) => String(s || '').toLowerCase().replace(/[\s_\-]+/g, '');
+        const nameKey = norm(meta && meta.name);
+        const hit = installed.find((it) =>
+            norm(it.name) === nameKey || norm(it.folder) === nameKey
+        ) || null;
+        if (hit && meta) {
+            const hasUpdate = addonCenter.compareVersions(meta.version, hit.version) > 0;
+            if (!hasUpdate && !force) {
+                log.error('[HuHoBotPenguin] 拒绝安装：已安装 ' + hit.name +
+                    (hit.version ? ' v' + hit.version : '') + '（与中心版本一致）。覆盖请加 force');
+                return;
+            }
+            if (hasUpdate) {
+                log.info('[HuHoBotPenguin] 检测到更新（' + hit.version + ' → ' + meta.version + '），先卸载旧版…');
+                runtime.addonMgr.uninstall(hit.folder || hit.name);
+            }
+        }
+
+        const r = await addonCenter.downloadAndInstall({
+            apiBase: c.apiBase,
+            id,
+            installRoot: c.installRoot,
+            force
+        });
+        const ok = runtime.addonMgr.load(r.folder);
+        log.info('[HuHoBotPenguin] 已安装 ' + r.name + (r.version ? ' v' + r.version : '') +
+            ' → addons/' + r.folder + (ok ? '，并已热加载' : '（加载失败，见上方日志）'));
+    })().catch((e) => {
+        if (e && e.code === 'EEXIST') {
+            log.error('[HuHoBotPenguin] 目录已存在：addons/' + e.folder + '。确认覆盖请加 force：huhobot install ' + id + ' force');
+            return;
+        }
+        log.error('[HuHoBotPenguin] 安装失败：' + e.message);
+    });
+    return '开始下载安装插件 ' + id + '…（结果稍后打印到控制台）';
+}
+
+function runUninstall(parts) {
+    if (!runtime || !runtime.addonMgr) return '附属插件加载器未运行';
+    const name = String((parts && parts[0]) || '').trim();
+    if (!name) {
+        const names = runtime.addonMgr.getNames();
+        return '用法：huhobot uninstall <插件名>\n当前已加载：' + (names.length ? names.join('、') : '（无）');
+    }
+    const r = runtime.addonMgr.uninstall(name);
+    return r.ok ? ('已卸载并删除 addons/' + r.folder) : ('卸载失败：' + (r.error || '未知错误'));
 }
 
 /**

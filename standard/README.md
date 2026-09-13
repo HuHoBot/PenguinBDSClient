@@ -93,6 +93,9 @@ TPS：{{.tps}}
 |---|---|
 | `huhobot reload` | 重新读取 `config.json` 并重启 QQ 机器人网关，**无需重启服务器** |
 | `huhobot info` | 查看平台、插件版本与运行模式 |
+| `huhobot addons` | 列出已加载的附属插件 |
+| `huhobot center [搜索词]` | 查询 [附属插件中心](https://addon.txssb.cn) 列表（结果打印到控制台） |
+| `huhobot install <插件ID> [force]` | 从插件中心下载并安装到 `addons/`，自动热加载；已存在目录需加 `force` |
 
 > 说明：`reload` 会先停掉旧机器人连接再按新配置重建；若改的是 `bot.app-id` / `bot.secret` 等连接凭据，`reload` 同样生效。
 

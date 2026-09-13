@@ -28,7 +28,7 @@ const crypto = require('crypto');
 const log = typeof logger !== 'undefined' ? logger : console;
 
 /** 内联 SVG 图标（lucide 风格 stroke，零外部依赖）。 */
-const I = {"dashboard":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>","wrench":"<path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"/>","blocks":"<rect x=\"3\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"3\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/>","chat":"<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>","plug":"<path d=\"M12 22v-5\"/><path d=\"M9 8V2\"/><path d=\"M15 8V2\"/><path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z\"/>","gear":"<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>","zap":"<polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"/>","trash":"<path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"/><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/>","plus":"<path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>","send":"<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>","save":"<path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/>"};
+const I = {"dashboard":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>","wrench":"<path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"/>","blocks":"<rect x=\"3\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"3\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"3\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/><rect x=\"13\" y=\"13\" width=\"8\" height=\"8\" rx=\"1.5\"/>","chat":"<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>","plug":"<path d=\"M12 22v-5\"/><path d=\"M9 8V2\"/><path d=\"M15 8V2\"/><path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z\"/>","download":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/>","gear":"<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>","zap":"<polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"/>","trash":"<path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"/><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/>","plus":"<path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>","send":"<path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/>","save":"<path d=\"M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z\"/><polyline points=\"17 21 17 13 7 13 7 21\"/><polyline points=\"7 3 7 8 15 8\"/>"};
 const iJson = JSON.stringify(I).replace(/</g, '\\u003c');
 const svg = (name) => '<svg class="ic" viewBox="0 0 24 24">' + I[name] + '</svg>';
 
@@ -42,11 +42,15 @@ class WebUI {
      * @param {Function|null} reloadCb  保存配置后调用的重载回调（热重载插件）
      * @param {object|null} adapter     Adapter 单例（附属插件列表）
      */
-    constructor(config, agent, reloadCb, adapter) {
+    constructor(config, agent, reloadCb, adapter, extras) {
         this.config = config;
         this.agent = agent;
         this.adapter = adapter || null;
         this.reloadCb = reloadCb || null;
+        this.extras = extras || {};
+        this.addonMgr = this.extras.addonMgr || null;
+        this.configLoader = this.extras.configLoader || null;
+        this.addonCenter = this.extras.addonCenter || null;
         this.enabled = config.getBool('webui.enabled', false);
         this.host = config.getString('webui.host', '') || '127.0.0.1';
         this.port = config.getInt('webui.port', 8088);
@@ -74,21 +78,23 @@ class WebUI {
         try {
             const server = http.createServer((req, res) => this._requestHandler(req, res, this));
             server.on('error', (e) => {
-                // reload 时序下旧 server close 未完成时可能出现 EADDRINUSE，延迟重试
+                this.running = false;
                 if (e && e.code === 'EADDRINUSE') {
-                    log.warn('[HuHoBotPenguin-Llama] WebUI 端口 ' + this.port + ' 被占用，300ms 后重试…');
-                    setTimeout(() => { if (this.enabled && !this.running) this.start(); }, 300);
+                    log.warn('[HuHoBotPenguin-Llama] WebUI 端口 ' + this.port + ' 被占用，500ms 后重试…');
+                    setTimeout(() => { if (this.enabled && !this.running) this.start(); }, 500);
                 } else {
                     log.error('[HuHoBotPenguin-Llama] WebUI 服务错误：' + (e && e.message || e));
                 }
             });
-            server.listen(this.port, this.host);
+            server.listen(this.port, this.host, () => {
+                this.running = true;
+                const displayHost = (this.host === '0.0.0.0' || this.host === '::') ? '本机所有网卡(外网可访问)' : this.host;
+                log.info('[HuHoBotPenguin-Llama] WebUI 已启动：http://' + this.host + ':' + this.port +
+                    '（监听 ' + displayHost + '）' + (this.hasAuth() ? '（需要登录）' : '（无密码，仅本机可安全对外）'));
+            });
             this.svr = server;
-            this.running = true;
-            const displayHost = (this.host === '0.0.0.0' || this.host === '::') ? '本机所有网卡(外网可访问)' : this.host;
-            log.info('[HuHoBotPenguin-Llama] WebUI 已启动：http://' + (this.host === '0.0.0.0' ? '0.0.0.0' : this.host) + ':' + this.port +
-                '（监听 ' + displayHost + '）' + (this.hasAuth() ? '（需要登录）' : '（无密码，仅本机可安全对外）'));
         } catch (e) {
+            this.running = false;
             log.error('[HuHoBotPenguin-Llama] WebUI 启动失败：' + (e && e.message || e));
         }
     }
@@ -105,13 +111,14 @@ class WebUI {
     /** Node http 请求统一入口：解析 body → 路由分发。 */
     _requestHandler(req, res, self) {
         const method = req.method || 'GET';
-        const url = (req.url || '').split('?')[0];
+        const fullUrl = req.url || '/';
+        const url = fullUrl.split('?')[0];
         let rawBody = '';
         try {
             req.on('data', (c) => { rawBody += c; });
             req.on('end', () => {
                 const ctx = self._adaptReq(req, rawBody, res);
-                self._route(method, url, ctx, res, rawBody);
+                self._route(method, url, ctx, res, rawBody, fullUrl);
             });
         } catch (e) {
             self._json(res, 500, { error: '请求处理异常' });
@@ -130,7 +137,7 @@ class WebUI {
     }
 
     /** 简单路由分发（统一 req/res）。 */
-    _route(method, url, ctx, res, body) {
+    _route(method, url, ctx, res, body, fullUrl) {
         try {
             if (method === 'GET' && (url === '/' || url === '/index.html')) {
                 this._handleIndex(ctx, res);
@@ -146,6 +153,15 @@ class WebUI {
                 this._guard(() => this._handleSaveConfig(ctx, res))(ctx, res);
             } else if (method === 'GET' && url === '/api/addons') {
                 this._guard(() => this._handleAddons(ctx, res))(ctx, res);
+            } else if (method === 'GET' && url === '/api/tools') {
+                this._guard(() => this._handleTools(ctx, res))(ctx, res);
+            } else if (method === 'GET' && url === '/api/center/list') {
+                ctx.url = fullUrl || (url + (url.indexOf('?') >= 0 ? '' : ''));
+                this._guard(() => this._handleCenterList(ctx, res))(ctx, res);
+            } else if (method === 'POST' && url === '/api/center/install') {
+                this._guard(() => this._handleCenterInstall(ctx, res))(ctx, res);
+            } else if (method === 'POST' && url === '/api/center/uninstall') {
+                this._guard(() => this._handleCenterUninstall(ctx, res))(ctx, res);
             } else if (method === 'POST' && url === '/api/chat') {
                 this._guard(() => this._handleChat(ctx, res))(ctx, res);
             } else {
@@ -265,6 +281,236 @@ class WebUI {
         this._json(res, 200, { ok: true, addons });
     }
 
+    _handleTools(req, res) {
+        const builtin = [
+            { key: 'query_online', desc: '查询在线玩家', permission: 0 },
+            { key: 'query_whitelist', desc: '查询白名单', permission: 0 },
+            { key: 'execute_command', desc: '执行控制台命令', permission: 1 }
+        ];
+        let skills = [];
+        if (this.agent && Array.isArray(this.agent.skills)) {
+            skills = this.agent.skills.map((s) => ({
+                key: 'skill__' + s.key,
+                skillKey: s.key,
+                desc: s.desc || s.name || s.key,
+                permission: s.permission || 0,
+                command: s.command || '',
+                params: s.params || []
+            }));
+        } else {
+            // Agent 未注入时从配置读
+            try {
+                const list = this.config.getList('ai.skills') || [];
+                skills = list.map((s) => ({
+                    key: 'skill__' + (s.key || ''),
+                    skillKey: s.key || '',
+                    desc: s.desc || s.name || s.key || '',
+                    permission: s.permission || 0,
+                    command: s.command || '',
+                    params: []
+                }));
+            } catch (e) { /* ignore */ }
+        }
+        this._json(res, 200, { ok: true, builtin, skills, total: builtin.length + skills.length });
+    }
+
+    _centerState() {
+        const enabled = this.config.getBool('addon-center.enabled', true);
+        const apiBase = this.config.getString('addon-center.api-base', '') || 'https://addon.txssb.cn/api.php';
+        const filterLse = this.config.getBool('addon-center.filter-lse-only', true);
+        const root = this.configLoader && this.configLoader.root
+            ? this.configLoader.root()
+            : process.cwd();
+        return {
+            enabled,
+            apiBase,
+            filterLse,
+            installRoot: require('path').join(root, 'addons')
+        };
+    }
+
+    _installedByAddonMgr() {
+        if (this.addonMgr && typeof this.addonMgr.listInstalledMeta === 'function') {
+            return this.addonMgr.listInstalledMeta();
+        }
+        return [];
+    }
+
+    /** 名称归一化：忽略大小写 / 空格 / 连字符 / 下划线，便于中心名与本地目录对齐 */
+    _normName(s) {
+        return String(s || '').toLowerCase().replace(/[\s_\-]+/g, '');
+    }
+
+    _markInstalled(plugins, installedMeta) {
+        const byKey = new Map();
+        for (const it of installedMeta) {
+            const keys = [it.name, it.folder].filter(Boolean).map((x) => this._normName(x));
+            for (const k of keys) {
+                if (k && !byKey.has(k)) byKey.set(k, it);
+            }
+        }
+        const ac = this.addonCenter;
+        return (plugins || []).map((p) => {
+            const hit = byKey.get(this._normName(p.name)) || byKey.get(this._normName(p.id));
+            const remoteVer = String(p.version || '');
+            const localVer = hit ? String(hit.version || '') : '';
+            let updateAvailable = false;
+            if (hit && ac && typeof ac.compareVersions === 'function') {
+                updateAvailable = ac.compareVersions(remoteVer, localVer) > 0;
+            }
+            const isLse = !ac || typeof ac.isLsePlugin !== 'function' || ac.isLsePlugin(p);
+            return Object.assign({}, p, {
+                installed: !!hit,
+                installedFolder: hit ? hit.folder : null,
+                installedVersion: localVer,
+                loaded: hit ? !!hit.loaded : false,
+                updateAvailable,
+                isLse,
+                canInstall: isLse && (!hit || updateAvailable)
+            });
+        });
+    }
+
+    async _handleCenterList(req, res) {
+        const c = this._centerState();
+        if (!c.enabled) {
+            this._json(res, 400, { error: '插件中心已关闭（addon-center.enabled=false）' });
+            return;
+        }
+        if (!this.addonCenter) {
+            this._json(res, 500, { error: 'addoncenter 模块未注入' });
+            return;
+        }
+        let search = '';
+        try {
+            const u = new URL((req && req.url) || '/api/center/list', 'http://127.0.0.1');
+            search = u.searchParams.get('search') || '';
+        } catch (e) { /* ignore */ }
+        try {
+            const data = await this.addonCenter.listPlugins(c.apiBase, { search });
+            let plugins = data.plugins || [];
+            plugins = this._markInstalled(plugins, this._installedByAddonMgr());
+            // filter-lse-only 仅隐藏非 LSE；无论开关与否，非 LSE 都不可安装（canInstall=false）
+            if (c.filterLse) {
+                plugins = plugins.filter((p) => p.isLse);
+            }
+            this._json(res, 200, {
+                ok: true,
+                plugins,
+                total: plugins.length,
+                filterLse: c.filterLse
+            });
+        } catch (e) {
+            this._json(res, 502, { error: '查询插件中心失败：' + (e && e.message || e) });
+        }
+    }
+
+    async _handleCenterInstall(req, res) {
+        const c = this._centerState();
+        if (!c.enabled) {
+            this._json(res, 400, { error: '插件中心已关闭（addon-center.enabled=false）' });
+            return;
+        }
+        if (!this.addonCenter) {
+            this._json(res, 500, { error: 'addoncenter 模块未注入' });
+            return;
+        }
+        let body = '';
+        try { body = this._readBody(req); } catch (e) { /* ignore */ }
+        let data = {};
+        try { data = body ? JSON.parse(body) : {}; } catch (e) { /* ignore */ }
+        const id = String(data.id || '').trim();
+        const force = !!data.force;
+        if (!id) {
+            this._json(res, 400, { error: '缺少插件 ID' });
+            return;
+        }
+
+        // 预检：类型 / 已安装
+        try {
+            const detail = await this.addonCenter.pluginDetail(c.apiBase, id);
+            const p = detail && detail.plugin ? detail.plugin : detail;
+            const isLse = !this.addonCenter.isLsePlugin || this.addonCenter.isLsePlugin(p);
+            if (!isLse) {
+                this._json(res, 400, { error: '该插件不是 LLSE/LSE 类型（server_type=' + (p && p.server_type || '?') + '），无法安装到本插件 addons 目录' });
+                return;
+            }
+            const installed = this._markInstalled([p], this._installedByAddonMgr())[0];
+            if (installed && installed.installed && !installed.updateAvailable && !force) {
+                this._json(res, 409, {
+                    error: '已安装 ' + installed.name +
+                        (installed.installedVersion ? ' v' + installed.installedVersion : '') +
+                        '（与中心版本一致）。如需覆盖损坏安装请使用 force',
+                    alreadyInstalled: true,
+                    installedVersion: installed.installedVersion
+                });
+                return;
+            }
+            if (installed && installed.installed && installed.updateAvailable) {
+                // 更新：先卸载旧版再装新版
+                const folder = installed.installedFolder || installed.name;
+                if (this.addonMgr && typeof this.addonMgr.uninstall === 'function') {
+                    this.addonMgr.uninstall(folder);
+                }
+            }
+        } catch (e) {
+            // 详情失败不阻断下载
+            log.warn('[HuHoBotPenguin] 安装前预检失败（继续下载）：' + e.message);
+        }
+
+        try {
+            const r = await this.addonCenter.downloadAndInstall({
+                apiBase: c.apiBase,
+                id,
+                installRoot: c.installRoot,
+                force
+            });
+            let loaded = false;
+            if (this.addonMgr && typeof this.addonMgr.load === 'function') {
+                loaded = !!this.addonMgr.load(r.folder);
+            }
+            this._json(res, 200, {
+                ok: true,
+                name: r.name,
+                version: r.version,
+                folder: r.folder,
+                loaded,
+                message: '已安装到 addons/' + r.folder + (loaded ? '，并已热加载' : '（请检查加载日志）')
+            });
+        } catch (e) {
+            if (e && e.code === 'EEXIST') {
+                this._json(res, 409, {
+                    error: '目录已存在：addons/' + e.folder + '。确认覆盖请使用 force',
+                    folder: e.folder
+                });
+                return;
+            }
+            this._json(res, 500, { error: '安装失败：' + (e && e.message || e) });
+        }
+    }
+
+    async _handleCenterUninstall(req, res) {
+        if (!this.addonMgr || typeof this.addonMgr.uninstall !== 'function') {
+            this._json(res, 500, { error: '附属插件管理器不可用' });
+            return;
+        }
+        let body = '';
+        try { body = this._readBody(req); } catch (e) { /* ignore */ }
+        let data = {};
+        try { data = body ? JSON.parse(body) : {}; } catch (e) { /* ignore */ }
+        const name = String(data.name || data.folder || '').trim();
+        if (!name) {
+            this._json(res, 400, { error: '缺少插件名称/目录名' });
+            return;
+        }
+        const r = this.addonMgr.uninstall(name);
+        if (!r.ok) {
+            this._json(res, 404, { error: r.error || '卸载失败' });
+            return;
+        }
+        this._json(res, 200, { ok: true, folder: r.folder, message: '已卸载并删除 addons/' + r.folder });
+    }
+
     _handleChat(req, res) {
         let body = '';
         try { body = this._readBody(req); } catch (e) { /* ignore */ }
@@ -284,7 +530,14 @@ class WebUI {
     // ---- 配置读写 ----
 
     _configPath() {
-        const root = (typeof __dirname !== 'undefined') ? path.dirname(__dirname) : process.cwd();
+        // webui.js 在插件根目录：config.json 与 main.js 同级
+        let root = null;
+        if (this.configLoader && typeof this.configLoader.root === 'function') {
+            try { root = this.configLoader.root(); } catch (e) { /* ignore */ }
+        }
+        if (!root) {
+            root = (typeof __dirname !== 'undefined') ? __dirname : process.cwd();
+        }
         return path.join(root, 'config.json');
     }
 
@@ -359,6 +612,11 @@ class WebUI {
                 { p: 'motd.port', l: 'MOTD 端口', typ: 'number' },
                 { p: 'motd.api', l: '状态图 API 模板' },
                 { p: 'motd.text', l: '查在线文本模板', typ: 'textarea' }
+            ]},
+            { g: '插件中心', t: 'center', fields: [
+                { p: 'addon-center.enabled', l: '启用插件中心', typ: 'bool' },
+                { p: 'addon-center.api-base', l: 'API 地址', ph: 'https://addon.txssb.cn/api.php' },
+                { p: 'addon-center.filter-lse-only', l: '仅显示 LLSE 插件', typ: 'bool' }
             ]}
         ];
         const fieldsJson = JSON.stringify(fields).replace(/</g, '\\u003c');
@@ -459,6 +717,7 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
     <div class="nav" onclick="showPage('skills',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></span>Skill 管理</div>
     <div class="nav" onclick="showPage('chat',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>AI 对话</div>
     <div class="nav" onclick="showPage('addons',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></svg></span>附属插件</div>
+    <div class="nav" onclick="showPage('center',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>插件中心</div>
     <div class="nav" onclick="showPage('config',this)"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>配置</div>
     <div class="foot"><button onclick="logout()">退出登录</button></div>
   </aside>
@@ -484,13 +743,11 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
       </div>
       <!-- 工具 -->
       <div class="pg" id="pg_tools">
-        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>AI 可用工具</h2>
-          <div class="tools">
-            <div class="tool"><div class="tk">query_online</div><div class="td">查询在线玩家</div><span class="tag pub">公开</span></div>
-            <div class="tool"><div class="tk">query_whitelist</div><div class="td">查询白名单</div><span class="tag pub">公开</span></div>
-            <div class="tool"><div class="tk">execute_command</div><div class="td">执行控制台命令</div><span class="tag adm">管理员</span></div>
-          </div>
-          <div class="hint">AI 通过 function calling 自动调用；"执行命令"仅 ai.admin-openids 中管理员可用。</div>
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>AI 可用工具
+          <button class="btn" onclick="loadTools()" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>刷新</button>
+        </h2>
+          <div id="toolList"></div>
+          <div class="hint">AI 通过 function calling 自动调用；「执行命令」与 permission=1 的 Skill 仅 ai.admin-openids 中管理员可用。自定义 Skill 在「Skill 管理」保存后，点此处刷新或热重载后生效。</div>
         </div>
       </div>
       <!-- Skill 管理 -->
@@ -540,6 +797,20 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
           <div class="hint" style="margin-top:10px">附属插件在其加载时调用 <code>registerAddon(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里；群内指令「已加载插件」可查看同样内容。</div>
         </div>
       </div>
+      <!-- 插件中心 -->
+      <div class="pg" id="pg_center">
+        <div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>插件中心
+          <button class="btn" onclick="loadCenter()" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>刷新</button>
+        </h2>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <input id="center_q" placeholder="搜索插件名称 / 描述…" style="flex:1;min-width:160px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);" onkeydown="if(event.key==='Enter')loadCenter()">
+            <button class="btn primary" onclick="loadCenter()">搜索</button>
+          </div>
+          <div id="centerList"></div>
+          <div class="msg" id="center_msg"></div>
+          <div class="hint" style="margin-top:10px">从 <a href="https://addon.txssb.cn" target="_blank" style="color:var(--cyan)">HuHoBot 附属插件中心</a> 下载并安装到 <code>addons/</code>。已存在同名目录需勾选强制覆盖。控制台也可用：<code>huhobot install &lt;插件ID&gt; [force]</code></div>
+        </div>
+      </div>
       <!-- 配置 -->
       <div class="pg" id="pg_config">
         <div class="card">
@@ -560,17 +831,17 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 <script>
 const FIELDS = ${fieldsJson};
 const I = ${iJson};
-const PG_TITLES = {overview:'总览',tools:'AI 工具',skills:'Skill 管理',chat:'AI 对话',addons:'附属插件',config:'配置'};
+const PG_TITLES = {overview:'总览',tools:'AI 工具',skills:'Skill 管理',chat:'AI 对话',addons:'附属插件',center:'插件中心',config:'配置'};
 let CFG = {};
 async function j(url,opt){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opt});return {ok:r.ok,data:await r.json().catch(()=>({}))};}
 function g(p,o){return p.split('.').reduce((a,k)=>a&&a[k]!==undefined?a[k]:undefined,o);}
 function s(p,v,o){const ks=p.split('.');let n=o;for(let i=0;i<ks.length-1;i++){if(!n[ks[i]]||typeof n[ks[i]]!=='object')n[ks[i]]={};n=n[ks[i]];}n[ks[ks.length-1]]=v;}
-function showPage(name,el){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));document.getElementById('pg_'+name).classList.add('show');document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page_ttl').textContent=PG_TITLES[name]||name;if(name==='addons')loadAddons();if(window.innerWidth<=720)document.getElementById('side').classList.remove('open');}
+function showPage(name,el){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));document.getElementById('pg_'+name).classList.add('show');document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page_ttl').textContent=PG_TITLES[name]||name;if(name==='addons')loadAddons();if(name==='center')loadCenter();if(name==='config')loadCfg();if(name==='tools')loadTools();if(window.innerWidth<=720)document.getElementById('side').classList.remove('open');}
 function toggleSide(){document.getElementById('side').classList.toggle('open');}
 async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('l_msg').textContent='';bootstrap();}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
 async function logout(){await j('/api/logout',{method:'POST'});location.reload();}
 async function status(){const r=await j('/api/status');if(r.ok){const d=r.data;const el=document.getElementById('st_ai');el.textContent=d.aiEnabled?'AI ● 已启用':'AI ○ 未启用';el.className='badge '+(d.aiEnabled?'on':'off');document.getElementById('st_ver').textContent='v'+(d.configVersion||'?');}}
-function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
+function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard',center:'download'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
 function fillForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;const v=g(f.p,CFG);if(f.typ==='bool'){el.value=String(!!v);}else if(f.typ==='csv'){el.value=Array.isArray(v)?v.join(', '):v||'';}else{el.value=v===undefined||v===null?'':v;}}));}
 function collectForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;let v;if(f.typ==='bool'){v=el.value==='true';}else if(f.typ==='number'){v=isNaN(Number(el.value))||el.value===''?undefined:Number(el.value);}else if(f.typ==='csv'){v=el.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);}else{v=el.value;}if(v!==undefined&&v!=='')s(f.p,v,CFG);}));return CFG;}
 async function loadCfg(){const r=await j('/api/config');if(!r.ok){setMsg('err',r.data.error||'加载失败');return;}CFG=r.data.config;buildForm();fillForm();document.getElementById('rawCfg').value=JSON.stringify(CFG,null,2);updateSwitches();renderSkills();setMsg('done','已加载');}
@@ -602,12 +873,29 @@ function skillRowHtml(s,i){const div=document.createElement('div');div.className
 function addSkillRow(){const w=document.getElementById('skillRows');w.appendChild(skillRowHtml({},w.children.length));}
 function collectSkills(){const rows=document.querySelectorAll('#skillRows .grp');const out=[];rows.forEach(r=>{const gs='';const g=(n)=>r.querySelector('[data-sf="'+n+'"]')&&r.querySelector('[data-sf="'+n+'"]').value||'';const key=(g('key')||'').trim(),command=(g('command')||'').trim();if(key&&command){out.push({key,name:(g('name')||key).trim(),desc:(g('desc')||'').trim(),command,permission:parseInt(g('permission')||'0',10)});}});return out;}
 function smsg(cls,t){const el=document.getElementById('skill_msg');if(!el)return;el.className='msg '+cls;el.textContent=t;}
-async function saveSkills(){const skills=collectSkills();CFG.ai=CFG.ai||{};CFG.ai.skills=skills;const r=await j('/api/config',{method:'POST',body:JSON.stringify({config:CFG})});smsg(r.ok?'done':'err',r.data.message||r.data.error||'保存');if(r.ok){setTimeout(async()=>{await loadCfg();},800);}}
+async function saveSkills(){const skills=collectSkills();CFG.ai=CFG.ai||{};CFG.ai.skills=skills;const r=await j('/api/config',{method:'POST',body:JSON.stringify({config:CFG})});smsg(r.ok?'done':'err',r.data.message||r.data.error||'保存');if(r.ok){setTimeout(async()=>{await loadCfg();await loadTools();},800);}}
 function rawToggle(){const w=document.getElementById('rawWrap');const show=w.style.display!=='block';w.style.display=show?'block':'none';if(show)document.getElementById('rawCfg').value=JSON.stringify(collectForm(),null,2);}
 async function sendChat(){const msg=document.getElementById('chat_in').value.trim();if(!msg)return;document.getElementById('chat_out').textContent='…思考中';const r=await j('/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:msg}]})});document.getElementById('chat_out').textContent=r.data.reply||r.data.error||'(空)';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function loadAddons(){const w=document.getElementById('addonList');if(!w)return;const r=await j('/api/addons');const list=r.ok&&Array.isArray(r.data.addons)?r.data.addons:[];if(!list.length){w.innerHTML='<div class="hint">暂无附属插件——附属插件在加载时调用 <code>ll.imports("HuHoBotPenguin","registerAddon")(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里。</div>';return;}w.innerHTML=list.map(a=>'<div class="tool"><div class="tk">'+esc(a.name)+(a.version?' v'+esc(a.version):'')+(a.commandCount?' · '+esc(a.commandCount)+' 条命令':'')+'</div><div class="td">'+(esc(a.description)||'无描述')+(a.author?' · '+esc(a.author):'')+'</div></div>').join('');}
-async function bootstrap(){await status();await loadCfg();}
+async function loadTools(){const w=document.getElementById('toolList');if(!w)return;const r=await j('/api/tools');if(!r.ok){w.innerHTML='<div class="hint">'+esc(r.data.error||'加载失败')+'</div>';return;}const b=r.data.builtin||[];const s=r.data.skills||[];let h='<div class="hint" style="margin-bottom:8px">内置工具（'+b.length+'）</div><div class="tools">';b.forEach(t=>{h+='<div class="tool"><div class="tk">'+esc(t.key)+'</div><div class="td">'+esc(t.desc)+'</div><span class="tag '+(t.permission?'adm':'pub')+'">'+(t.permission?'管理员':'公开')+'</span></div>';});h+='</div>';h+='<div class="hint" style="margin:12px 0 8px">自定义 Skill（'+s.length+'）</div>';if(!s.length){h+='<div class="hint">暂无——在「Skill 管理」添加并保存后，AI 热重载即可调用</div>';}else{h+='<div class="tools">';s.forEach(t=>{h+='<div class="tool"><div class="tk">'+esc(t.key)+'</div><div class="td">'+esc(t.desc)+(t.command?' · <code>'+esc(t.command)+'</code>':'')+'</div><span class="tag '+(t.permission?'adm':'pub')+'">'+(t.permission?'管理员':'公开')+'</span></div>';});h+='</div>';}w.innerHTML=h;}
+async function loadCenter(){const w=document.getElementById('centerList');const m=document.getElementById('center_msg');if(!w)return;if(m){m.className='msg';m.textContent='加载中…';}const q=(document.getElementById('center_q')&&document.getElementById('center_q').value||'').trim();const r=await j('/api/center/list'+(q?'?search='+encodeURIComponent(q):''));if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'加载失败';}w.innerHTML='';return;}const list=Array.isArray(r.data.plugins)?r.data.plugins:[];if(m){m.className='msg done';m.textContent='共 '+list.length+' 个结果'+(r.data.filterLse?'（已隐藏非 LLSE）':'');}if(!list.length){w.innerHTML='<div class="hint">没有匹配的插件</div>';return;}w.innerHTML=list.map(p=>{
+  const tags=[];
+  if(p.installed) tags.push('<span class="badge on" style="font-size:10px;padding:2px 8px">已安装'+(p.installedVersion?' v'+esc(p.installedVersion):'')+'</span>');
+  if(p.updateAvailable) tags.push('<span class="badge" style="font-size:10px;padding:2px 8px;background:#4a3a10;color:#fbbf24">有更新</span>');
+  if(!p.isLse) tags.push('<span class="badge off" style="font-size:10px;padding:2px 8px">非 LLSE</span>');
+  let actions='';
+  if(p.isLse && p.installed){
+    actions+='<button class="btn" data-uninstall="'+esc(p.installedFolder||p.name)+'" onclick="uninstallCenter(this.dataset.uninstall,this)">卸载</button>';
+    if(p.updateAvailable) actions+='<button class="btn primary" data-install="'+esc(p.id)+'" onclick="installCenter(this.dataset.install,false,this)">更新</button>';
+  } else if(p.canInstall){
+    actions+='<button class="btn primary" data-install="'+esc(p.id)+'" onclick="installCenter(this.dataset.install,false,this)">安装</button>';
+  }
+  return '<div class="tool"><div class="tk">'+esc(p.name)+(p.version?' v'+esc(p.version):'')+' '+tags.join(' ')+'</div><div class="td">'+(esc(p.description)||'无描述')+(p.author?' · '+esc(p.author):'')+(p.downloads!=null?' · 下载 '+esc(p.downloads):'')+(p.server_type?' · '+esc(p.server_type):'')+'<div class="hint" style="margin-top:4px">ID: <code>'+esc(p.id)+'</code>'+(p.tags&&p.tags.length?' · 标签: '+p.tags.map(esc).join(', '):'')+'</div></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+actions+'</div></div>';
+}).join('');}
+async function installCenter(id,force,btn){const m=document.getElementById('center_msg');const useForce=!!force;if(btn){btn.disabled=true;btn.textContent='安装中…';}if(m){m.className='msg';m.textContent='正在下载安装 '+id+'…';}const r=await j('/api/center/install',{method:'POST',body:JSON.stringify({id:id,force:useForce})});if(btn){btn.disabled=false;btn.textContent=btn.textContent==='更新中…'?'更新':'安装';}if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'安装失败';}loadCenter();return;}if(m){m.className='msg done';m.textContent=r.data.message||('已安装 '+r.data.name);}loadCenter();}
+async function uninstallCenter(name,btn){const m=document.getElementById('center_msg');if(!confirm('确认卸载并删除 addons/'+name+' ？'))return;if(btn){btn.disabled=true;btn.textContent='卸载中…';}const r=await j('/api/center/uninstall',{method:'POST',body:JSON.stringify({name:name})});if(btn){btn.disabled=false;btn.textContent='卸载';}if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'卸载失败';}return;}if(m){m.className='msg done';m.textContent=r.data.message||('已卸载 '+name);}loadCenter();}
+async function bootstrap(){await status();await loadCfg();await loadTools();}
 bootstrap();
 </script></body></html>`;
     }
