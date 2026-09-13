@@ -7,17 +7,17 @@
  * unload：停止网关、清理定时器。
  */
 
-const configLoader = require('./lib/config');
+const configLoader = require('./config');
 const { State } = require('./lib/state');
 const { QQClient } = require('./lib/qqclient');
 const { CustomCommands } = require('./lib/customcommands');
-const { handleGroupMessage } = require('./lib/commands');
+const { handleGroupMessage } = require('./commands');
 const { Bot } = require('./lib/bot');
 const { getSharedAdapter } = require('./lib/adapter');
 const { AddonManager } = require('./lib/addonmanager');
 const { TickMonitor } = require('./lib/tickmonitor');
-const { Agent } = require('./lib/agent');
-const { WebUI } = require('./lib/webui');
+const { Agent } = require('./agent');
+const { WebUI } = require('./webui');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 

@@ -13,7 +13,7 @@ const path = require('path');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
-const { renderCommand } = require('./customcommands');
+const { renderCommand } = require('./lib/customcommands');
 
 /** 渲染 skill 命令：tokens 按顺序替换 {0}/{1}/... 占位符（复用 renderCommand 语义）。 */
 function renderSkillCommand(command, tokens, groupId, userId) {
