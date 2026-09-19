@@ -60,6 +60,7 @@ const DEFAULT_VALUES = {
     'features.push-menu': true,
     'features.online-tps': true,
     'features.load-addons': true,
+    'features.auto-ack-interaction': true,
 
     'addon-center.enabled': true,
     'addon-center.api-base': 'https://addon.txssb.cn/api.php',

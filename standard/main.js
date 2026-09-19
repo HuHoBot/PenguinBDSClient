@@ -105,6 +105,14 @@ function main() {
     client.on('joinRequest', (request) => adapter.fireJoinRequest(request));
     client.on('memberJoin', (payload) => adapter.fireMemberJoin(payload));
     client.on('memberLeave', (payload) => adapter.fireMemberLeave(payload));
+    client.on('botJoinGroup', (payload) => adapter.fireBotJoinGroup(payload));
+    client.on('botLeaveGroup', (payload) => adapter.fireBotLeaveGroup(payload));
+    client.on('groupMsgReceive', (payload) => adapter.fireGroupNotifySwitch(payload, true));
+    client.on('groupMsgReject', (payload) => adapter.fireGroupNotifySwitch(payload, false));
+    client.on('interaction', (payload) => {
+        // type=11/12 默认自动 PUT 应答，避免客户端一直 loading（features.auto-ack-interaction 可关）
+        adapter.handleInteraction(payload, config.getBool('features.auto-ack-interaction', true));
+    });
 
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
@@ -223,6 +231,18 @@ function registerAdapterExports(adapter) {
     ll.exports((id) => adapter.offMemberJoin(id), ns, 'offMemberJoin');
     ll.exports((fn) => adapter.onMemberLeave(fn), ns, 'onMemberLeave');
     ll.exports((id) => adapter.offMemberLeave(id), ns, 'offMemberLeave');
+    ll.exports((fn) => adapter.onBotJoinGroup(fn), ns, 'onBotJoinGroup');
+    ll.exports((id) => adapter.offBotJoinGroup(id), ns, 'offBotJoinGroup');
+    ll.exports((fn) => adapter.onBotLeaveGroup(fn), ns, 'onBotLeaveGroup');
+    ll.exports((id) => adapter.offBotLeaveGroup(id), ns, 'offBotLeaveGroup');
+    ll.exports((fn) => adapter.onGroupNotifySwitch(fn), ns, 'onGroupNotifySwitch');
+    ll.exports((id) => adapter.offGroupNotifySwitch(id), ns, 'offGroupNotifySwitch');
+    ll.exports((fn) => adapter.onInteraction(fn), ns, 'onInteraction');
+    ll.exports((id) => adapter.offInteraction(id), ns, 'offInteraction');
+    ll.exports((g, m) => adapter.recallGroupMessage(g, m), ns, 'recallGroupMessage');
+    ll.exports((u, m) => adapter.recallPrivateMessage(u, m), ns, 'recallPrivateMessage');
+    ll.exports((id, code) => adapter.ackInteraction(id, code), ns, 'ackInteraction');
+    ll.exports((g, c, k, m, o) => adapter.sendGroupKeyboard(g, c, k, m, o), ns, 'sendGroupKeyboard');
     ll.exports((pattern, flags, handler) => adapter.registerRegexCommand(pattern, flags, handler), ns, 'registerRegexCommand');
     ll.exports((id) => adapter.unregisterRegexCommand(id), ns, 'unregisterRegexCommand');
     ll.exports(() => adapter.getVersion(), ns, 'getVersion');
@@ -238,8 +258,9 @@ function registerAdapterExports(adapter) {
     ll.exports((n) => adapter.unregisterAddon(n), ns, 'unregisterAddon');
     ll.exports(() => adapter.getAddons(), ns, 'getAddons');
     log.info('[HuHoBotPenguin] 已导出附属插件 API（namespace="HuHoBotPenguin"）：' +
-        'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/onMemberJoin/onMemberLeave/registerBotCommand/registerRegexCommand/' +
-        'getAuthenticatedQq/isAdmin/getBotInfo/sendGroupText/sendPrivateText/muteMember/approveJoinRequest 等');
+        'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/onMemberJoin/onMemberLeave/' +
+        'onBotJoinGroup/onBotLeaveGroup/onGroupNotifySwitch/onInteraction/registerBotCommand/registerRegexCommand/' +
+        'recallGroupMessage/sendGroupKeyboard/getAuthenticatedQq/isAdmin/getBotInfo/sendGroupText/sendPrivateText/muteMember/approveJoinRequest 等');
 }
 /** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
 function stopRuntime() {

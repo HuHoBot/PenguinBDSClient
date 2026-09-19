@@ -46,6 +46,7 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 | `features.markdown-query-online` | `true` | “查在线”用自定义 Markdown 卡片展示（`msg_type=2`，官方已向所有机器人开放）；解析失败/发送失败自动回退纯文本 |
 | `features.markdown-whitelist` | `true` | “查白名单”用自定义 Markdown 卡片展示（解析 `allowlist list` 的 JSON 输出）；失败自动回退纯文本 |
 | `features.online-tps` | `true` | “查在线”输出附带实时 TPS 统计（插件自行测量，`onTick` 不可用时自动隐藏） |
+| `features.auto-ack-interaction` | `true` | 收到键盘按钮/快捷菜单互动（type=11/12）后自动 `PUT /interactions` 应答，避免客户端一直 loading |
 | `command-panel.<命令名>` | `true` | 单独开关某个内置命令**是否展示在 QQ 指令面板**（命令本身照常可用；彻底关闭命令用 `commands.<命令名>`） |
 | `motd.ip` | 空 | 服务器公网地址（IP 或域名），填写后“查在线”卡片顶部显示 MOTD 状态图（motd.minebbs.com 需能连通该地址）；留空不显示 |
 | `motd.port` | `19132` | 服务器端口（BDS 默认 19132） |
@@ -251,6 +252,14 @@ module.exports = (addon) => {
 | `onJoinRequest(fn)` | 监听入群申请（GROUP_JOIN_REQUEST，机器人需群管理员），pack 含 `memberOpenid`/`username`/`joinRequestId`/`verifyMessage` |
 | `onMemberJoin(fn)` / `offMemberJoin(id)` | 群成员加入（GROUP_MEMBER_ADD），pack 含 `groupOpenId`/`memberOpenid`/`userOpenid`/`timestamp` |
 | `onMemberLeave(fn)` / `offMemberLeave(id)` | 群成员退出（GROUP_MEMBER_REMOVE），pack 同上 |
+| `onBotJoinGroup(fn)` / `offBotJoinGroup(id)` | 机器人加入群（GROUP_ADD_ROBOT），pack 含 `groupOpenId`/`opMemberOpenid`/`timestamp`；可用 `event.replyText` 被动欢迎 |
+| `onBotLeaveGroup(fn)` / `offBotLeaveGroup(id)` | 机器人退出群（GROUP_DEL_ROBOT），pack 同上 |
+| `onGroupNotifySwitch(fn)` / `offGroupNotifySwitch(id)` | 群资料页「通知」开关（`GROUP_MSG_RECEIVE`/`REJECT`），pack 含 `enabled`/`opMemberOpenid`。**官方文档有此事件（Intent 1<<25），但实测 QQ 往往不推送**；开 `debug.log-events` 若始终无对应 Dispatch，属官方侧未下发，代码保留作兼容 |
+| `onInteraction(fn)` / `offInteraction(id)` | 键盘按钮/菜单互动（INTERACTION_CREATE），pack 含 `id`/`type`/`buttonId`/`buttonData`/`groupOpenId`；type=11/12 默认已自动应答 |
+| `recallGroupMessage(groupOpenId, messageId)` | 撤回群消息（Promise；2 分钟内；管理员可撤他人消息） |
+| `recallPrivateMessage(userOpenId, messageId)` | 撤回单聊消息（Promise；仅机器人自己发的） |
+| `sendGroupKeyboard(groupOpenId, content, keyboard[, msgId, opts])` | 发送带内嵌键盘的群消息（Promise；`keyboard` 为 `{id}` 或 `{content:{rows}}`；`opts.msgType` 默认 2 Markdown） |
+| `ackInteraction(interactionId[, code])` | 手动应答互动（同一 id 只能一次；默认自动应答时无需调用） |
 | `registerRegexCommand(pattern, flags, handler)` | 注册正则命令：未命中内置/运行时命令的消息按注册顺序匹配，handler(pack, match, event)，`setCancelled` 取消默认处理；返回 id |
 | `unregisterRegexCommand(id)` | 注销正则命令 |
 | `getVersion()` / `getGroups()` | 插件版本 / 配置的群列表 |
