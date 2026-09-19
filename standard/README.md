@@ -249,6 +249,8 @@ module.exports = (addon) => {
 | `onReady(fn)` | 网关就绪（READY）时触发，fn({version}) |
 | `onPrivateMsg(fn)` | 监听用户单聊消息（C2C_MESSAGE_CREATE），pack 含 `userOpenId`/`content`；`event.replyText` 走单聊被动回复 |
 | `onJoinRequest(fn)` | 监听入群申请（GROUP_JOIN_REQUEST，机器人需群管理员），pack 含 `memberOpenid`/`username`/`joinRequestId`/`verifyMessage` |
+| `onMemberJoin(fn)` / `offMemberJoin(id)` | 群成员加入（GROUP_MEMBER_ADD），pack 含 `groupOpenId`/`memberOpenid`/`userOpenid`/`timestamp` |
+| `onMemberLeave(fn)` / `offMemberLeave(id)` | 群成员退出（GROUP_MEMBER_REMOVE），pack 同上 |
 | `registerRegexCommand(pattern, flags, handler)` | 注册正则命令：未命中内置/运行时命令的消息按注册顺序匹配，handler(pack, match, event)，`setCancelled` 取消默认处理；返回 id |
 | `unregisterRegexCommand(id)` | 注销正则命令 |
 | `getVersion()` / `getGroups()` | 插件版本 / 配置的群列表 |

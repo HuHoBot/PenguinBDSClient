@@ -103,6 +103,8 @@ function main() {
     client.on('ready', () => adapter.fireReady());
     client.on('privateMessage', (message) => adapter.firePrivateMsg(message));
     client.on('joinRequest', (request) => adapter.fireJoinRequest(request));
+    client.on('memberJoin', (payload) => adapter.fireMemberJoin(payload));
+    client.on('memberLeave', (payload) => adapter.fireMemberLeave(payload));
 
     // 游戏 → QQ：转发以 chat-format.start-with 开头（默认 #）的游戏聊天到所有已配置群。
     // 同时导出 ll.exports("HuHoBotPenguin","send") 供 LuckyClover 等插件调用——
@@ -217,6 +219,10 @@ function registerAdapterExports(adapter) {
     ll.exports((id) => adapter.offPrivateMsg(id), ns, 'offPrivateMsg');
     ll.exports((fn) => adapter.onJoinRequest(fn), ns, 'onJoinRequest');
     ll.exports((id) => adapter.offJoinRequest(id), ns, 'offJoinRequest');
+    ll.exports((fn) => adapter.onMemberJoin(fn), ns, 'onMemberJoin');
+    ll.exports((id) => adapter.offMemberJoin(id), ns, 'offMemberJoin');
+    ll.exports((fn) => adapter.onMemberLeave(fn), ns, 'onMemberLeave');
+    ll.exports((id) => adapter.offMemberLeave(id), ns, 'offMemberLeave');
     ll.exports((pattern, flags, handler) => adapter.registerRegexCommand(pattern, flags, handler), ns, 'registerRegexCommand');
     ll.exports((id) => adapter.unregisterRegexCommand(id), ns, 'unregisterRegexCommand');
     ll.exports(() => adapter.getVersion(), ns, 'getVersion');
@@ -232,7 +238,7 @@ function registerAdapterExports(adapter) {
     ll.exports((n) => adapter.unregisterAddon(n), ns, 'unregisterAddon');
     ll.exports(() => adapter.getAddons(), ns, 'getAddons');
     log.info('[HuHoBotPenguin] 已导出附属插件 API（namespace="HuHoBotPenguin"）：' +
-        'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/registerBotCommand/registerRegexCommand/' +
+        'onRecvMsg/onBotCommand/onReady/onPrivateMsg/onJoinRequest/onMemberJoin/onMemberLeave/registerBotCommand/registerRegexCommand/' +
         'getAuthenticatedQq/isAdmin/getBotInfo/sendGroupText/sendPrivateText/muteMember/approveJoinRequest 等');
 }
 /** 停止当前运行实例：关网关、移除监听。幂等。返回是否实际停止了实例。 */
