@@ -15,7 +15,7 @@ import zipfile
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 DIST_DIR = os.path.join(REPO_ROOT, 'dist')
-VERSION = '1.6.0'
+VERSION = '1.7.0'
 
 # 各版本的独有文件（相对于 repo root）
 VERSIONS = {
