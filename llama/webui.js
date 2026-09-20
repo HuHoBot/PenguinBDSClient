@@ -24,6 +24,8 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const qrLogin = require('../lib/qrlogin');
+const qrSvg = require('../lib/qrsvg');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
@@ -162,6 +164,12 @@ class WebUI {
                 this._guard(() => this._handleCenterInstall(ctx, res))(ctx, res);
             } else if (method === 'POST' && url === '/api/center/uninstall') {
                 this._guard(() => this._handleCenterUninstall(ctx, res))(ctx, res);
+            } else if (method === 'POST' && url === '/api/qr/start') {
+                this._guard(() => this._handleQrStart(ctx, res))(ctx, res);
+            } else if (method === 'GET' && url === '/api/qr/status') {
+                this._guard(() => this._handleQrStatus(ctx, res))(ctx, res);
+            } else if (method === 'POST' && url === '/api/qr/cancel') {
+                this._guard(() => this._handleQrCancel(ctx, res))(ctx, res);
             } else if (method === 'POST' && url === '/api/chat') {
                 this._guard(() => this._handleChat(ctx, res))(ctx, res);
             } else {
@@ -274,6 +282,73 @@ class WebUI {
         } else {
             this._json(res, 200, { ok: true, message: '配置已保存（执行 huhobot reload 生效）' });
         }
+    }
+
+    // ---- 扫码绑定 ----
+
+    /** 启动扫码会话；生成 SVG 二维码与链接。 */
+    _handleQrStart(req, res) {
+        try {
+            const s = qrLogin.startSession({ source: 'HuHoBotPenguin', force: true });
+            // 成功后写入 config 并热重载（控制台路径在 main.js 挂，WebUI 在这里挂）
+            if (!s.__webuiBound) {
+                s.__webuiBound = true;
+                s.on('success', (creds) => {
+                    try {
+                        const cfgPath = this.configLoader
+                            ? path.join(this.configLoader.root(), 'config.json')
+                            : null;
+                        if (cfgPath) qrLogin.saveCredentialsToConfig(cfgPath, creds);
+                        if (this.reloadCb) {
+                            try { this.reloadCb(); } catch (e) { /* ignore */ }
+                        }
+                    } catch (e) {
+                        log.error('[HuHoBotPenguin-Llama] 扫码成功但写入配置失败：' + (e && e.message || e));
+                    }
+                });
+            }
+            // 等第一次 qr 事件（最多 8s），再返回 URL
+            const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
+            const got = new Promise((resolve) => {
+                if (s.url && s.state === 'waiting') {
+                    resolve({ url: s.url });
+                    return;
+                }
+                s.once('qr', (e) => resolve(e));
+            });
+            Promise.race([got, timeout]).then((e) => {
+                const url = (e && e.url) || s.url || '';
+                if (!url) {
+                    this._json(res, 502, { error: '创建扫码任务超时，请重试', state: s.snapshot() });
+                    return;
+                }
+                let svg = '';
+                try { svg = qrSvg.toSvg(url, { size: 220 }); } catch (err) { /* ignore */ }
+                this._json(res, 200, {
+                    ok: true,
+                    url,
+                    svg,
+                    state: s.snapshot()
+                });
+            });
+        } catch (e) {
+            this._json(res, 500, { error: (e && e.message) || '启动扫码失败' });
+        }
+    }
+
+    _handleQrStatus(req, res) {
+        const s = qrLogin.getSession();
+        if (!s) {
+            this._json(res, 200, { ok: true, state: 'idle', url: '', credentials: null });
+            return;
+        }
+        const snap = s.snapshot();
+        this._json(res, 200, { ok: true, ...snap });
+    }
+
+    _handleQrCancel(req, res) {
+        const ok = qrLogin.cancelSession();
+        this._json(res, 200, { ok, message: ok ? '已取消' : '没有进行中的会话' });
     }
 
     _handleAddons(req, res) {
@@ -601,6 +676,7 @@ class WebUI {
                 { p: 'bot.app-id', l: 'AppID' },
                 { p: 'bot.secret', l: 'Secret', typ: 'password' }
             ]},
+            { g: '扫码绑定（免填 AppID/Secret）', t: 'qr', fields: [] },
             { g: '聊天格式', t: 'chat', fields: [
                 { p: 'chat-format.from-game', l: '游戏→群' },
                 { p: 'chat-format.from-group', l: '群→游戏' },
@@ -841,7 +917,7 @@ function toggleSide(){document.getElementById('side').classList.toggle('open');}
 async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('l_msg').textContent='';bootstrap();}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
 async function logout(){await j('/api/logout',{method:'POST'});location.reload();}
 async function status(){const r=await j('/api/status');if(r.ok){const d=r.data;const el=document.getElementById('st_ai');el.textContent=d.aiEnabled?'AI ● 已启用':'AI ○ 未启用';el.className='badge '+(d.aiEnabled?'on':'off');document.getElementById('st_ver').textContent='v'+(d.configVersion||'?');}}
-function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard',center:'download'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
+function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard',center:'download',qr:'blocks'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';if(grp.t==='qr'){h+='<div class="hint" style="margin-bottom:10px">手机 QQ 扫码绑定，成功后自动写入 bot.app-id / bot.secret 并热重载。也可控制台执行 <code>huhobot qr</code>。</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn primary" id="qr_start" onclick="qrStart()">生成二维码</button><button class="btn" id="qr_cancel" onclick="qrCancel()">取消</button></div><div class="msg" id="qr_msg"></div><div id="qr_box" style="display:none;margin-top:10px;text-align:center"><div id="qr_svg"></div><div style="margin-top:8px;font-size:12px;color:#94a3b8;word-break:break-all" id="qr_url"></div><a id="qr_open" target="_blank" class="btn" style="display:inline-block;margin-top:8px;text-decoration:none">打开链接</a></div>';}grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
 function fillForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;const v=g(f.p,CFG);if(f.typ==='bool'){el.value=String(!!v);}else if(f.typ==='csv'){el.value=Array.isArray(v)?v.join(', '):v||'';}else{el.value=v===undefined||v===null?'':v;}}));}
 function collectForm(){FIELDS.forEach(grp=>grp.fields.forEach(f=>{const el=document.getElementById('f_'+f.p.replace(/[.\-]/g,'_'));if(!el)return;let v;if(f.typ==='bool'){v=el.value==='true';}else if(f.typ==='number'){v=isNaN(Number(el.value))||el.value===''?undefined:Number(el.value);}else if(f.typ==='csv'){v=el.value.split(/[,，\s]+/).map(x=>x.trim()).filter(Boolean);}else{v=el.value;}if(v!==undefined&&v!=='')s(f.p,v,CFG);}));return CFG;}
 async function loadCfg(){const r=await j('/api/config');if(!r.ok){setMsg('err',r.data.error||'加载失败');return;}CFG=r.data.config;buildForm();fillForm();document.getElementById('rawCfg').value=JSON.stringify(CFG,null,2);updateSwitches();renderSkills();setMsg('done','已加载');}
@@ -877,6 +953,12 @@ async function saveSkills(){const skills=collectSkills();CFG.ai=CFG.ai||{};CFG.a
 function rawToggle(){const w=document.getElementById('rawWrap');const show=w.style.display!=='block';w.style.display=show?'block':'none';if(show)document.getElementById('rawCfg').value=JSON.stringify(collectForm(),null,2);}
 async function sendChat(){const msg=document.getElementById('chat_in').value.trim();if(!msg)return;document.getElementById('chat_out').textContent='…思考中';const r=await j('/api/chat',{method:'POST',body:JSON.stringify({messages:[{role:'user',content:msg}]})});document.getElementById('chat_out').textContent=r.data.reply||r.data.error||'(空)';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// ---- 扫码绑定 ----
+let QR_POLL=null;
+function qrSet(cls,t){const el=document.getElementById('qr_msg');if(!el)return;el.className='msg '+cls;el.textContent=t;}
+async function qrStart(){const b=document.getElementById('qr_start');if(b){b.disabled=true;b.textContent='创建中…';}qrSet('','正在创建扫码任务…');const r=await j('/api/qr/start',{method:'POST',body:'{}'});if(b){b.disabled=false;b.textContent='生成二维码';}if(!r.ok||!r.data.url){qrSet('err',r.data.error||'启动失败');return;}const box=document.getElementById('qr_box');const sv=document.getElementById('qr_svg');const u=document.getElementById('qr_url');const a=document.getElementById('qr_open');if(sv)sv.innerHTML=r.data.svg||'';if(u)u.textContent=r.data.url;if(a)a.href=r.data.url;if(box)box.style.display='block';qrSet('done','请用手机 QQ 扫码，等待确认…');if(QR_POLL)clearInterval(QR_POLL);QR_POLL=setInterval(qrPoll,2000);qrPoll();}
+async function qrPoll(){const r=await j('/api/qr/status');if(!r.ok)return;const st=r.data.state;if(st==='success'){if(QR_POLL){clearInterval(QR_POLL);QR_POLL=null;}qrSet('done','绑定成功 appId='+(r.data.credentials&&r.data.credentials.appId||'')+'，已写入配置并重载');setTimeout(async()=>{await loadCfg();},1000);}else if(st==='error'||st==='expired'||st==='cancelled'){if(QR_POLL){clearInterval(QR_POLL);QR_POLL=null;}qrSet('err',r.data.error||('会话结束：'+st));}else if(st==='waiting'){if(r.data.url){const u=document.getElementById('qr_url');const a=document.getElementById('qr_open');const sv=document.getElementById('qr_svg');if(u&&u.textContent!==r.data.url){u.textContent=r.data.url;if(a)a.href=r.data.url;if(sv&&r.data.svg)sv.innerHTML=r.data.svg;}}}}
+async function qrCancel(){if(QR_POLL){clearInterval(QR_POLL);QR_POLL=null;}const r=await j('/api/qr/cancel',{method:'POST',body:'{}'});qrSet(r.ok?'done':'err',(r.data&&r.data.message)||'已取消');}
 async function loadAddons(){const w=document.getElementById('addonList');if(!w)return;const r=await j('/api/addons');const list=r.ok&&Array.isArray(r.data.addons)?r.data.addons:[];if(!list.length){w.innerHTML='<div class="hint">暂无附属插件——附属插件在加载时调用 <code>ll.imports("HuHoBotPenguin","registerAddon")(名称, 版本, 描述, 作者)</code> 注册元数据后才会显示在这里。</div>';return;}w.innerHTML=list.map(a=>'<div class="tool"><div class="tk">'+esc(a.name)+(a.version?' v'+esc(a.version):'')+(a.commandCount?' · '+esc(a.commandCount)+' 条命令':'')+'</div><div class="td">'+(esc(a.description)||'无描述')+(a.author?' · '+esc(a.author):'')+'</div></div>').join('');}
 async function loadTools(){const w=document.getElementById('toolList');if(!w)return;const r=await j('/api/tools');if(!r.ok){w.innerHTML='<div class="hint">'+esc(r.data.error||'加载失败')+'</div>';return;}const b=r.data.builtin||[];const s=r.data.skills||[];let h='<div class="hint" style="margin-bottom:8px">内置工具（'+b.length+'）</div><div class="tools">';b.forEach(t=>{h+='<div class="tool"><div class="tk">'+esc(t.key)+'</div><div class="td">'+esc(t.desc)+'</div><span class="tag '+(t.permission?'adm':'pub')+'">'+(t.permission?'管理员':'公开')+'</span></div>';});h+='</div>';h+='<div class="hint" style="margin:12px 0 8px">自定义 Skill（'+s.length+'）</div>';if(!s.length){h+='<div class="hint">暂无——在「Skill 管理」添加并保存后，AI 热重载即可调用</div>';}else{h+='<div class="tools">';s.forEach(t=>{h+='<div class="tool"><div class="tk">'+esc(t.key)+'</div><div class="td">'+esc(t.desc)+(t.command?' · <code>'+esc(t.command)+'</code>':'')+'</div><span class="tag '+(t.permission?'adm':'pub')+'">'+(t.permission?'管理员':'公开')+'</span></div>';});h+='</div>';}w.innerHTML=h;}
 async function loadCenter(){const w=document.getElementById('centerList');const m=document.getElementById('center_msg');if(!w)return;if(m){m.className='msg';m.textContent='加载中…';}const q=(document.getElementById('center_q')&&document.getElementById('center_q').value||'').trim();const r=await j('/api/center/list'+(q?'?search='+encodeURIComponent(q):''));if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'加载失败';}w.innerHTML='';return;}const list=Array.isArray(r.data.plugins)?r.data.plugins:[];if(m){m.className='msg done';m.textContent='共 '+list.length+' 个结果'+(r.data.filterLse?'（已隐藏非 LLSE）':'');}if(!list.length){w.innerHTML='<div class="hint">没有匹配的插件</div>';return;}w.innerHTML=list.map(p=>{

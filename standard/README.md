@@ -20,7 +20,7 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
    - 机器人创建后，接入方式选择 **WebSocket**（事件订阅：群聊/私聊事件）。
    - 在“开发设置”里拿到 **AppID** 与 **AppSecret**。
    - 若开启了 IP 白名单，把 BDS 服务器的公网出口 IP 加入白名单（否则网关连接会被拒）。
-4. **填配置**：编辑 `plugins/HuHoBotPenguin-LLSE/config.json`，填入 `bot.app-id`、`bot.secret`，并把目标群 OpenID 填进 `bot.groups`（为空 = 所有群都可触发）。
+4. **填配置**：编辑 `plugins/HuHoBotPenguin-LLSE/config.json`，填入 `bot.app-id`、`bot.secret`，并把目标群 OpenID 填进 `bot.groups`（为空 = 所有群都可触发）。**凭据留空启动时会直接在控制台打印二维码字符画**（`bot.auto-qr`，默认开），手机 QQ 扫一下即可写入凭据并重载；也可执行 `huhobot qr`。
 5. **重启服务器**，控制台应依次出现：
    - `HuHoBot Penguin 已加载`
    - `正在获取 access_token…`
@@ -30,7 +30,10 @@ LLSE 自带的 `WSClient` 底层 `lightwebsocketclient` 不支持 TLS，无法�
 
 | 配置 | 默认 | 说明 |
 |---|---|---|
-| `bot.app-id` / `bot.secret` | 空 | QQ 开放平台凭据，必填 |
+| `bot.app-id` / `bot.secret` | 空 | QQ 开放平台凭据，必填；控制台 `huhobot qr` 可扫码自动写入 |
+| `bot.auto-qr` | `true` | 启动时若凭据为空，**控制台直接打印二维码字符画**（另写 `qr-login.svg` 兜底）；扫码成功后写入并重载 |
+| `bot.auto-qr` | `true` | 启动时若凭据为空，自动打印扫码链接并生成 `qr-login.svg`（成功后写入凭据并重载） |
+| `bot.auto-qr` | `true` | 启动时若未配置凭据，自动打印扫码链接并生成 `qr-login.svg`；成功后写入并重载 |
 | `bot.name` | HuHoBot | 机器人显示名（“在线服务器”命令回复用） |
 | `serverName` | 空 | 进服/退服通知前缀 `{server}`；留空回退 `bot.name` |
 | `bot.groups` | `[]` | 允许的群 OpenID 列表；空 = 所有群 |
@@ -97,6 +100,8 @@ TPS：{{.tps}}
 | `huhobot addons` | 列出已加载的附属插件 |
 | `huhobot center [搜索词]` | 查询 [附属插件中心](https://addon.txssb.cn) 列表（结果打印到控制台） |
 | `huhobot install <插件ID> [force]` | 从插件中心下载并安装到 `addons/`，自动热加载；已存在目录需加 `force` |
+| `huhobot qr` | 扫码绑定：**控制台打印二维码字符画**，手机 QQ 扫后自动写入 `bot.app-id`/`bot.secret` 并重载（过期自动刷新） |
+| `huhobot qrcancel` | 取消进行中的扫码会话 |
 
 > 说明：`reload` 会先停掉旧机器人连接再按新配置重建；若改的是 `bot.app-id` / `bot.secret` 等连接凭据，`reload` 同样生效。
 

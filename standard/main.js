@@ -9,6 +9,7 @@
 
 const configLoader = require('./config');
 const path = require('path');
+const fs = require('fs');
 const { State } = require('./lib/state');
 const { QQClient } = require('./lib/qqclient');
 const { CustomCommands } = require('./lib/customcommands');
@@ -18,6 +19,7 @@ const { getSharedAdapter } = require('./lib/adapter');
 const { AddonManager } = require('./lib/addonmanager');
 const { TickMonitor } = require('./lib/tickmonitor');
 const addonCenter = require('./lib/addoncenter');
+const qrLogin = require('./lib/qrlogin');
 
 const log = typeof logger !== 'undefined' ? logger : console;
 
@@ -70,7 +72,20 @@ function main() {
     const appId = config.getString('bot.app-id', '');
     const secret = config.getString('bot.secret', '');
     if (!appId || !secret) {
-        log.warn('[HuHoBotPenguin] 未配置 bot.app-id / bot.secret，QQ 机器人未启动。请编辑 plugins/HuHoBotPenguin-LLSE/config.json');
+        log.warn('[HuHoBotPenguin] 未配置 bot.app-id / bot.secret，QQ 机器人未启动。');
+        if (config.getBool('bot.auto-qr', true)) {
+            try {
+                const msg = runQrLogin();
+                log.info('[HuHoBotPenguin] ' + msg);
+            } catch (e) {
+                log.error('[HuHoBotPenguin] 自动启动扫码失败：' + (e && e.message || e) +
+                    '。可手动执行 huhobot qr，或编辑 config.json');
+            }
+        } else {
+            log.info('[HuHoBotPenguin] bot.auto-qr=false，已跳过扫码。请编辑 config.json 或执行 huhobot qr');
+        }
+        // 继续初始化附属插件等（不建 QQ 网关）
+        // 标准版无凭据时不建 Bot——与旧行为一致，仅额外拉起扫码
         return null;
     }
 
@@ -320,7 +335,15 @@ function handleConsoleCommand(args) {
     if (sub === 'uninstall') {
         return runUninstall(args.slice(1));
     }
-    return '用法：huhobot reload | info | addons | center [搜索词] | install <插件ID> [force] | uninstall <插件名>';
+    if (sub === 'qr' || sub === 'qrcode' || sub === 'login') {
+        return runQrLogin(args.slice(1));
+    }
+    if (sub === 'qrcancel' || sub === 'qrlogout') {
+        return qrLogin.cancelSession()
+            ? '已取消扫码会话。'
+            : '当前没有进行中的扫码会话。';
+    }
+    return '用法：huhobot reload | info | addons | center [搜索词] | install <插件ID> [force] | uninstall <插件名> | qr | qrcancel';
 }
 
 function centerConfig() {
@@ -429,6 +452,62 @@ function runUninstall(parts) {
     }
     const r = runtime.addonMgr.uninstall(name);
     return r.ok ? ('已卸载并删除 addons/' + r.folder) : ('卸载失败：' + (r.error || '未知错误'));
+}
+
+/**
+ * 扫码绑定：创建任务 → 控制台打印/二维码 URL → 轮询 → 写入 bot.app-id/secret → 重载。
+ * 二维码过期自动刷新；huhobot qrcancel 取消。
+ */
+function runQrLogin() {
+    const existing = qrLogin.getSession();
+    if (existing && !existing.stopped &&
+        (existing.state === 'waiting' || existing.state === 'starting')) {
+        return '已有进行中的扫码会话：\n' + (existing.url || '（创建中）') +
+            '\n取消请用：huhobot qrcancel';
+    }
+    const s = qrLogin.startSession({ source: 'HuHoBotPenguin', force: true });
+    s.on('qr', (e) => {
+        log.info('[HuHoBotPenguin] 扫码链接：' + e.url);
+        try {
+            const { toTerminal } = require('./lib/qrsvg');
+            const art = toTerminal(e.url);
+            // 逐行打进控制台，保证在 BDS 控制台里也能看到
+            const lines = art.split('\n');
+            log.info('[HuHoBotPenguin] ┌─ 请用手机 QQ 扫描 ─┐');
+            for (const line of lines) {
+                log.info('[HuHoBotPenguin] │' + line + '│');
+            }
+            log.info('[HuHoBotPenguin] └────────────────────┘');
+        } catch (err) {
+            log.warn('[HuHoBotPenguin] 控制台二维码渲染失败（仍可用上方链接）：' + (err && err.message || err));
+        }
+        try {
+            const { toSvg } = require('./lib/qrsvg');
+            const svgPath = path.join(configLoader.root(), 'qr-login.svg');
+            fs.writeFileSync(svgPath, toSvg(e.url, { size: 240 }), 'utf8');
+            log.info('[HuHoBotPenguin] 亦已写入 ' + svgPath + '（浏览器打开可扫）');
+        } catch (err) {
+            /* SVG 失败不影响控制台码 */
+        }
+    });
+    s.on('expired', () => log.info('[HuHoBotPenguin] 二维码已过期，正在刷新…'));
+    s.on('success', (creds) => {
+        try {
+            qrLogin.saveCredentialsToConfig(
+                path.join(configLoader.root(), 'config.json'),
+                creds
+            );
+            log.info('[HuHoBotPenguin] 正在重载以应用新凭据…');
+            stopRuntime();
+            startRuntime();
+        } catch (e) {
+            log.error('[HuHoBotPenguin] 写入凭据或重载失败：' + (e && e.message || e));
+        }
+    });
+    s.on('error', (e) => {
+        log.error('[HuHoBotPenguin] 扫码登录失败：' + (e && e.message || e));
+    });
+    return '扫码登录已启动：控制台将直接打印二维码字符画，请用手机 QQ 扫描；过期会自动刷新。\n也可打开 qr-login.svg 或用上方链接。取消：huhobot qrcancel';
 }
 
 /**

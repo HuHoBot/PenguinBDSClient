@@ -40,6 +40,7 @@ const DEFAULT_VALUES = {
     'bot.secret': '',
     'bot.name': 'HuHoBot',
     'bot.groups': [],
+    'bot.auto-qr': true,
     'serverName': '',
 
     'chat-format.from-game': '[游戏] {name}: {message}',

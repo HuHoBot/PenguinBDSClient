@@ -95,13 +95,13 @@ QQ 开放平台官方机器人与 Minecraft 基岩版服务器之间的聊天 / 
 - **🔘 键盘互动自动应答**：收到按钮 / 快捷菜单回调后自动 `PUT /interactions`（`features.auto-ack-interaction`，默认开）
 - **MOTD 状态图 + 自定义模板**：`Markdown/online.md` 可编辑、`motd.api`/`motd.text` 模板
 - **敏感词审核**：正则 + 本地词库 + OpenAI 二审
-- **控制台命令**：`huhobot reload` / `huhobot info`
+- **控制台命令**：`huhobot reload` / `huhobot info` / `huhobot qr`（扫码绑定）
 
 ## 部署
 
 1. 安装 LSE Node 引擎：`lip install github.com/LiteLDev/LegacyScriptEngine`
 2. 放入 `plugins/HuHoBotPenguin-LLSE-Llama/`
-3. 填 `bot.app-id` / `bot.secret`；AI 版额外填 `ai.*`
+3. 填 `bot.app-id` / `bot.secret`（或控制台 `huhobot qr` / WebUI 配置页扫码绑定；**留空启动会直接在控制台打出二维码字符画**，`bot.auto-qr` 可关）；AI 版额外填 `ai.*`
 4. 重启服务器 → 控制台 `QQ 机器人已连接`
 
 ## 附属插件开发
