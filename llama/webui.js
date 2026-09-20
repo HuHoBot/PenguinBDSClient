@@ -145,6 +145,8 @@ class WebUI {
                 this._handleIndex(ctx, res);
             } else if (method === 'POST' && url === '/api/login') {
                 this._handleLogin(ctx, res);
+            } else if (method === 'GET' && url === '/api/setup-status') {
+                this._handleSetupStatus(ctx, res);
             } else if (method === 'POST' && url === '/api/logout') {
                 this._handleLogout(ctx, res);
             } else if (method === 'GET' && url === '/api/status') {
@@ -230,6 +232,15 @@ class WebUI {
         }
     }
 
+    _handleSetupStatus(req, res) {
+        const cfg = this._readConfig() || {};
+        const bot = cfg.bot || {};
+        this._json(res, 200, {
+            ok: true,
+            botConfigured: !!(bot['app-id'] && bot.secret)
+        });
+    }
+
     _handleLogout(req, res) {
         res.setHeader('Set-Cookie', 'huhobot_webui=; Max-Age=0; Path=/');
         this._json(res, 200, { ok: true });
@@ -241,12 +252,16 @@ class WebUI {
     }
 
     _handleStatus(req, res) {
+        const cfg = this._readConfig() || {};
+        const bot = cfg.bot || {};
+        const hasCredentials = !!(bot['app-id'] && bot.secret);
         this._json(res, 200, {
             ok: true,
             plugin: 'HuHoBotPenguin-LLSE-Llama',
             aiEnabled: !!(this.agent && this.agent.isEnabled()),
             webuiAuth: this.hasAuth(),
-            configVersion: this.config.getInt('config-version', 0)
+            configVersion: this.config.getInt('config-version', 0),
+            botConfigured: hasCredentials
         });
     }
 
@@ -758,10 +773,14 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 .sw{display:flex;align-items:center;gap:8px;background:#1a2040;border:1px solid #232b4a;padding:9px 16px;border-radius:20px;font-size:13px;cursor:pointer}
 .sw.on{background:#123a2d;border-color:#10b981}.sw input{display:none}
 .pg{display:none}.pg.show{display:block}
-#login{max-width:340px;margin:80px auto;padding:28px;background:#151a30;border:1px solid #232b4a;border-radius:16px;text-align:center}
+#login{position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#0b0e18}
+#login>div{max-width:340px;width:100%;padding:28px;background:#151a30;border:1px solid #232b4a;border-radius:16px;text-align:center}
 #login h1{font-size:20px;margin-bottom:18px;background:linear-gradient(135deg,#6366f1,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 #login input{width:100%;padding:10px;border-radius:9px;border:1px solid #2a3358;background:#0b0e18;color:#e2e8f0;margin:6px 0;outline:none}
 .hint{font-size:11px;color:#64748b;margin-top:10px}
+.setup-tab{flex:1;padding:10px;border-radius:10px;border:1px solid #2a3358;background:#1a2040;color:#94a3b8;cursor:pointer;font-size:13px;text-align:center;transition:all .2s}
+.setup-tab.active{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-color:#6366f1;font-weight:600}
+#setup_qr .qr-svg svg{width:200px;height:200px}
 .badge{font-size:11px;background:#1e2744;padding:4px 12px;border-radius:20px;color:#94a3b8}
 .badge.on{background:linear-gradient(135deg,#10b981,#14b8a6);color:#052e25}
 .badge.off{background:#1e2744;color:#64748b}
@@ -778,11 +797,49 @@ textarea#rawCfg{width:100%;min-height:220px;background:#0b0e18;border:1px solid 
 }
 </style></head><body>
 <div id="login">
-  <h1>HuHoBotPenguin-Llama</h1>
-  <input id="l_u" placeholder="用户名">
-  <input id="l_p" type="password" placeholder="密码">
-  <button class="btn primary" onclick="login()" style="width:100%;margin-top:8px">登 录</button>
-  <div class="msg" id="l_msg"></div>
+  <div>
+    <h1>HuHoBotPenguin-Llama</h1>
+    <input id="l_u" placeholder="用户名">
+    <input id="l_p" type="password" placeholder="密码">
+    <button class="btn primary" onclick="login()" style="width:100%;margin-top:8px">登 录</button>
+    <div class="msg" id="l_msg"></div>
+  </div>
+</div>
+
+<div id="setup" style="display:none">
+  <div style="max-width:480px;margin:60px auto;padding:32px;background:#151a30;border:1px solid #232b4a;border-radius:16px;text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🐧</div>
+    <h1 style="font-size:22px;margin-bottom:6px;background:linear-gradient(135deg,#6366f1,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent">欢迎使用 HuHoBotPenguin</h1>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:24px">首次使用，请先绑定 QQ 机器人</p>
+
+    <div style="display:flex;gap:12px;margin-bottom:20px">
+      <div id="setup_tab_qr" class="setup-tab active" onclick="setupTab('qr')">📱 扫码绑定</div>
+      <div id="setup_tab_manual" class="setup-tab" onclick="setupTab('manual')">✏️ 手动填写</div>
+    </div>
+
+    <!-- 扫码绑定 -->
+    <div id="setup_qr">
+      <div style="background:#1a2040;border:1px solid #232b4a;border-radius:12px;padding:20px;margin-bottom:16px">
+        <div id="setup_qr_box" style="min-height:220px;display:flex;align-items:center;justify-content:center">
+          <button class="btn primary" id="setup_qr_btn" onclick="setupQrStart()" style="font-size:15px;padding:12px 28px">生成二维码</button>
+        </div>
+        <div class="msg" id="setup_qr_msg" style="margin-top:10px"></div>
+      </div>
+      <div style="font-size:12px;color:#64748b">手机 QQ 扫码后自动写入凭据并重载</div>
+    </div>
+
+    <!-- 手动填写 -->
+    <div id="setup_manual" style="display:none">
+      <div style="text-align:left;background:#1a2040;border:1px solid #232b4a;border-radius:12px;padding:20px">
+        <div class="row" style="margin:8px 0"><label style="min-width:80px">AppID</label><input id="setup_appid" placeholder="QQ 开放平台 AppID"></div>
+        <div class="row" style="margin:8px 0"><label style="min-width:80px">Secret</label><input id="setup_secret" type="password" placeholder="QQ 开放平台 AppSecret"></div>
+      </div>
+      <button class="btn primary" onclick="setupManualSave()" style="margin-top:16px;font-size:15px;padding:10px 28px">保存并连接</button>
+      <div class="msg" id="setup_manual_msg" style="margin-top:10px"></div>
+    </div>
+
+    <div style="margin-top:20px"><a href="https://q.qq.com" target="_blank" style="font-size:12px;color:#64748b">没有凭据？去 QQ 开放平台创建机器人 →</a></div>
+  </div>
 </div>
 
 <div id="app" style="display:none" class="layout">
@@ -914,7 +971,7 @@ function g(p,o){return p.split('.').reduce((a,k)=>a&&a[k]!==undefined?a[k]:undef
 function s(p,v,o){const ks=p.split('.');let n=o;for(let i=0;i<ks.length-1;i++){if(!n[ks[i]]||typeof n[ks[i]]!=='object')n[ks[i]]={};n=n[ks[i]];}n[ks[ks.length-1]]=v;}
 function showPage(name,el){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));document.getElementById('pg_'+name).classList.add('show');document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page_ttl').textContent=PG_TITLES[name]||name;if(name==='addons')loadAddons();if(name==='center')loadCenter();if(name==='config')loadCfg();if(name==='tools')loadTools();if(window.innerWidth<=720)document.getElementById('side').classList.remove('open');}
 function toggleSide(){document.getElementById('side').classList.toggle('open');}
-async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';document.getElementById('l_msg').textContent='';bootstrap();}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
+async function login(){const r=await j('/api/login',{method:'POST',body:JSON.stringify({username:document.getElementById('l_u').value,password:document.getElementById('l_p').value})});if(r.ok){document.getElementById('login').style.display='none';document.getElementById('l_msg').textContent='';const sr=await j('/api/setup-status');if(sr.ok&&!sr.data.botConfigured){document.getElementById('setup').style.display='block';}else{document.getElementById('app').style.display='flex';await status();await loadCfg();await loadTools();}}else{document.getElementById('l_msg').className='msg err';document.getElementById('l_msg').textContent=r.data.error||'登录失败';}}
 async function logout(){await j('/api/logout',{method:'POST'});location.reload();}
 async function status(){const r=await j('/api/status');if(r.ok){const d=r.data;const el=document.getElementById('st_ai');el.textContent=d.aiEnabled?'AI ● 已启用':'AI ○ 未启用';el.className='badge '+(d.aiEnabled?'on':'off');document.getElementById('st_ver').textContent='v'+(d.configVersion||'?');}}
 function buildForm(){const w=document.getElementById('formWrap');w.innerHTML='';const gi={ai:'zap',webui:'plug',admin:'gear',server:'wrench',chat:'chat',md:'dashboard',center:'download',qr:'blocks'};FIELDS.forEach(grp=>{const div=document.createElement('div');div.className='grp';let h='<h3>'+(gi[grp.t]?'<svg class="ic" viewBox="0 0 24 24">'+I[gi[grp.t]]+'</svg> ':'')+grp.g+'</h3>';if(grp.t==='qr'){h+='<div class="hint" style="margin-bottom:10px">手机 QQ 扫码绑定，成功后自动写入 bot.app-id / bot.secret 并热重载。也可控制台执行 <code>huhobot qr</code>。</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn primary" id="qr_start" onclick="qrStart()">生成二维码</button><button class="btn" id="qr_cancel" onclick="qrCancel()">取消</button></div><div class="msg" id="qr_msg"></div><div id="qr_box" style="display:none;margin-top:10px;text-align:center"><div id="qr_svg"></div><div style="margin-top:8px;font-size:12px;color:#94a3b8;word-break:break-all" id="qr_url"></div><a id="qr_open" target="_blank" class="btn" style="display:inline-block;margin-top:8px;text-decoration:none">打开链接</a></div>';}grp.fields.forEach(f=>{const id='f_'+f.p.replace(/[.\-]/g,'_');h+='<div class="row"><label>'+f.l+'</label>';if(f.typ==='bool'){h+='<select id="'+id+'"><option value="true">开</option><option value="false">关</option></select>';}else if(f.typ==='select'){h+='<select id="'+id+'">'+(f.opts||[]).map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';}else if(f.typ==='textarea'){h+='<textarea id="'+id+'" placeholder="'+(f.ph||'')+'"></textarea>';}else{h+='<input id="'+id+'" type="'+(f.typ==='password'?'password':(f.typ==='number'?'number':'text'))+'" placeholder="'+(f.ph||'')+'">';}h+='</div>';});div.innerHTML=h;w.appendChild(div);});}
@@ -977,8 +1034,71 @@ async function loadCenter(){const w=document.getElementById('centerList');const 
 }).join('');}
 async function installCenter(id,force,btn){const m=document.getElementById('center_msg');const useForce=!!force;if(btn){btn.disabled=true;btn.textContent='安装中…';}if(m){m.className='msg';m.textContent='正在下载安装 '+id+'…';}const r=await j('/api/center/install',{method:'POST',body:JSON.stringify({id:id,force:useForce})});if(btn){btn.disabled=false;btn.textContent=btn.textContent==='更新中…'?'更新':'安装';}if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'安装失败';}loadCenter();return;}if(m){m.className='msg done';m.textContent=r.data.message||('已安装 '+r.data.name);}loadCenter();}
 async function uninstallCenter(name,btn){const m=document.getElementById('center_msg');if(!confirm('确认卸载并删除 addons/'+name+' ？'))return;if(btn){btn.disabled=true;btn.textContent='卸载中…';}const r=await j('/api/center/uninstall',{method:'POST',body:JSON.stringify({name:name})});if(btn){btn.disabled=false;btn.textContent='卸载';}if(!r.ok){if(m){m.className='msg err';m.textContent=r.data.error||'卸载失败';}return;}if(m){m.className='msg done';m.textContent=r.data.message||('已卸载 '+name);}loadCenter();}
-async function bootstrap(){await status();await loadCfg();await loadTools();}
-bootstrap();
+// ---- 快速开始 ----
+let SETUP_QR_POLL=null;
+function setupTab(t){
+  document.getElementById('setup_tab_qr').className='setup-tab'+(t==='qr'?' active':'');
+  document.getElementById('setup_tab_manual').className='setup-tab'+(t==='manual'?' active':'');
+  document.getElementById('setup_qr').style.display=t==='qr'?'block':'none';
+  document.getElementById('setup_manual').style.display=t==='manual'?'block':'none';
+}
+async function setupQrStart(){
+  const b=document.getElementById('setup_qr_btn');
+  if(b){b.disabled=true;b.textContent='创建中…';}
+  const msg=document.getElementById('setup_qr_msg');
+  const box=document.getElementById('setup_qr_box');
+  if(msg){msg.className='msg';msg.textContent='正在创建扫码任务…';}
+  const r=await j('/api/qr/start',{method:'POST',body:'{}'});
+  if(b){b.disabled=false;b.textContent='重新生成';}
+  if(!r.ok||!r.data.url){if(msg){msg.className='msg err';msg.textContent=r.data.error||'启动失败';}return;}
+  if(box){box.innerHTML='<div class="qr-svg">'+(r.data.svg||'')+'</div><div style="margin-top:8px;font-size:11px;color:#94a3b8;word-break:break-all">'+r.data.url+'</div>';}
+  if(msg){msg.className='msg done';msg.textContent='请用手机 QQ 扫码，等待确认…';}
+  if(SETUP_QR_POLL)clearInterval(SETUP_QR_POLL);
+  SETUP_QR_POLL=setInterval(setupQrPoll,2000);
+  setupQrPoll();
+}
+async function setupQrPoll(){
+  const r=await j('/api/qr/status');
+  if(!r.ok)return;
+  const st=r.data.state;
+  const msg=document.getElementById('setup_qr_msg');
+  if(st==='success'){
+    if(SETUP_QR_POLL){clearInterval(SETUP_QR_POLL);SETUP_QR_POLL=null;}
+    if(msg){msg.className='msg done';msg.textContent='绑定成功！正在加载…';}
+    setTimeout(()=>{location.reload();},1200);
+  }else if(st==='error'||st==='expired'||st==='cancelled'){
+    if(SETUP_QR_POLL){clearInterval(SETUP_QR_POLL);SETUP_QR_POLL=null;}
+    if(msg){msg.className='msg err';msg.textContent=r.data.error||('会话结束：'+st);}
+  }else if(st==='waiting'&&r.data.url){
+    const box=document.getElementById('setup_qr_box');
+    if(box&&r.data.svg){box.innerHTML='<div class="qr-svg">'+r.data.svg+'</div><div style="margin-top:8px;font-size:11px;color:#94a3b8;word-break:break-all">'+r.data.url+'</div>';}
+  }
+}
+async function setupManualSave(){
+  const appid=(document.getElementById('setup_appid').value||'').trim();
+  const secret=(document.getElementById('setup_secret').value||'').trim();
+  const msg=document.getElementById('setup_manual_msg');
+  if(!appid||!secret){if(msg){msg.className='msg err';msg.textContent='请填写 AppID 和 Secret';}return;}
+  const r=await j('/api/config');
+  if(!r.ok){if(msg){msg.className='msg err';msg.textContent=r.data.error||'读取配置失败';}return;}
+  const cfg=r.data.config||{};
+  cfg.bot=cfg.bot||{};
+  cfg.bot['app-id']=appid;
+  cfg.bot.secret=secret;
+  const s=await j('/api/config',{method:'POST',body:JSON.stringify({config:cfg})});
+  if(s.ok){if(msg){msg.className='msg done';msg.textContent='已保存，正在重载…';}setTimeout(()=>{location.reload();},1200);}
+  else{if(msg){msg.className='msg err';msg.textContent=s.data.error||'保存失败';}}
+}
+async function bootstrap(){
+  // 登录后才调用：检查是否需要快速开始
+  const sr=await j('/api/setup-status');
+  if(sr.ok&&!sr.data.botConfigured){
+    document.getElementById('setup').style.display='block';
+    return;
+  }
+  document.getElementById('app').style.display='flex';
+  await status();await loadCfg();await loadTools();
+}
 </script></body></html>`;
     }
 }
