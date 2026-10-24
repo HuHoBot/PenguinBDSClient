@@ -118,6 +118,10 @@ class Agent {
         } catch (e) { /* ignore */ }
 
         this.contexts = {};   // groupId -> [{role, content}]
+        this.groupQueues = new Map();
+        this.saveTimer = null;
+        this.stopped = false;
+        this.requests = new Set();
         this.skills = [];
         this._loadSkills();
         this._load();
@@ -175,6 +179,7 @@ class Agent {
      * @returns {Promise<string>} AI 回复文本
      */
     async chatTest(messages) {
+        if (this.stopped) return '(插件正在重载，请稍后重试)';
         if (!this.isEnabled()) throw new Error('AI 未启用');
         const msgs = [];
         msgs.push({ role: 'system', content: this._systemPrompt() });
@@ -211,7 +216,19 @@ class Agent {
      * @returns {Promise<string|null>} 回复文本；null 表示不处理
      */
     async handleMessage(bot, ctx) {
-        if (!this.isEnabled()) return null;
+        if (this.stopped) return null;
+        const key = String(ctx && ctx.groupId || '');
+        const previous = this.groupQueues.get(key) || Promise.resolve();
+        const current = previous.catch(() => {}).then(() => this._handleMessage(bot, ctx));
+        const tracked = current.finally(() => {
+            if (this.groupQueues.get(key) === tracked) this.groupQueues.delete(key);
+        });
+        this.groupQueues.set(key, tracked);
+        return tracked;
+    }
+
+    async _handleMessage(bot, ctx) {
+        if (this.stopped || !this.isEnabled()) return null;
         const groupId = ctx.groupId;
         const userId = ctx.userId || '';
         log.info('[HuHoBotPenguin-Llama] AI 收到群消息：group=' + groupId + ' content=' + String(ctx.content||'').slice(0,60));
@@ -221,7 +238,9 @@ class Agent {
             // 多轮工具调用循环（上限 6 轮）
             let messages = this._buildMessages(groupId);
             for (let round = 0; round < 6; round++) {
+                if (this.stopped) return null;
                 const resp = await this._chat(messages);
+                if (this.stopped) return null;
                 const result = this._extractReply(resp);
                 if (!result) return null;
 
@@ -288,6 +307,7 @@ class Agent {
                     res.setEncoding('utf8');
                     res.on('data', (c) => { data += c; });
                     res.on('end', () => {
+                        this.requests.delete(req);
                         try {
                             const json = JSON.parse(data);
                             resolve(json);
@@ -297,7 +317,8 @@ class Agent {
                     });
                 }
             );
-            req.on('error', reject);
+            this.requests.add(req);
+            req.on('error', (err) => { this.requests.delete(req); reject(err); });
             req.on('timeout', () => { req.destroy(new Error('AI 请求超时')); });
             req.write(body);
             req.end();
@@ -431,9 +452,34 @@ class Agent {
 
     _save() {
         if (!this.stateFile) return;
+        if (this.saveTimer) clearTimeout(this.saveTimer);
+        this.saveTimer = setTimeout(() => {
+            this.saveTimer = null;
+            this._saveNow();
+        }, 250);
+    }
+
+    _saveNow() {
+        if (!this.stateFile) return;
         try {
             fs.writeFileSync(this.stateFile, JSON.stringify(this.contexts, null, 2), 'utf8');
         } catch (e) { log.warn('[HuHoBotPenguin-Llama] 写 ai-context 失败:' + e.message); }
+    }
+
+    /** 停止旧实例，避免 reload 后旧请求/定时器继续影响新实例。 */
+    stop() {
+        if (this.stopped) return;
+        this.stopped = true;
+        if (this.saveTimer) {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+        }
+        this._saveNow();
+        for (const req of this.requests) {
+            try { req.destroy(new Error('AI Agent 正在重载')); } catch (e) { /* ignore */ }
+        }
+        this.requests.clear();
+        this.groupQueues.clear();
     }
 }
 

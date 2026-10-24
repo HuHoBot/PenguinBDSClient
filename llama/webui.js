@@ -34,8 +34,13 @@ const I = {"dashboard":"<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\
 const iJson = JSON.stringify(I).replace(/</g, '\\u003c');
 const svg = (name) => '<svg class="ic" viewBox="0 0 24 24">' + I[name] + '</svg>';
 
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 10;
+
 /** 内置登录会话：内存 token -> 过期时间（简单会话，重启即失效）。 */
 let sessions = {};  // token -> expireAt
+let loginAttempts = {}; // client key -> { count, resetAt }
 
 class WebUI {
     /**
@@ -60,6 +65,8 @@ class WebUI {
         this.password = config.getString('webui.password', '') || '';
         this.svr = null;
         this.running = false;
+        this.retryTimer = null;
+        this.retryCount = 0;
     }
 
     /** 是否已配置密码（未配则仅本机可访问，无登录校验）。 */
@@ -82,14 +89,22 @@ class WebUI {
             server.on('error', (e) => {
                 this.running = false;
                 if (e && e.code === 'EADDRINUSE') {
-                    log.warn('[HuHoBotPenguin-Llama] WebUI 端口 ' + this.port + ' 被占用，500ms 后重试…');
-                    setTimeout(() => { if (this.enabled && !this.running) this.start(); }, 500);
+                    this.running = false;
+                    this.svr = null;
+                    if (this.retryCount >= 8) {
+                        log.error('[HuHoBotPenguin-Llama] WebUI 端口 ' + this.port + ' 连续占用，停止自动重试');
+                        return;
+                    }
+                    const delay = Math.min(30000, 500 * Math.pow(2, this.retryCount++));
+                    log.warn('[HuHoBotPenguin-Llama] WebUI 端口 ' + this.port + ' 被占用，' + delay + 'ms 后重试…');
+                    this.retryTimer = setTimeout(() => { this.retryTimer = null; if (this.enabled && !this.running) this.start(); }, delay);
                 } else {
                     log.error('[HuHoBotPenguin-Llama] WebUI 服务错误：' + (e && e.message || e));
                 }
             });
             server.listen(this.port, this.host, () => {
                 this.running = true;
+                this.retryCount = 0;
                 const displayHost = (this.host === '0.0.0.0' || this.host === '::') ? '本机所有网卡(外网可访问)' : this.host;
                 log.info('[HuHoBotPenguin-Llama] WebUI 已启动：http://' + this.host + ':' + this.port +
                     '（监听 ' + displayHost + '）' + (this.hasAuth() ? '（需要登录）' : '（无密码，仅本机可安全对外）'));
@@ -103,6 +118,10 @@ class WebUI {
 
     /** 停止 HTTP 服务。 */
     stop() {
+        if (this.retryTimer) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = null;
+        }
         if (this.svr && typeof this.svr.close === 'function') {
             try { this.svr.close(); } catch (e) { /* ignore */ }
         }
@@ -116,12 +135,32 @@ class WebUI {
         const fullUrl = req.url || '/';
         const url = fullUrl.split('?')[0];
         let rawBody = '';
+        let rawBytes = 0;
+        let tooLarge = false;
         try {
-            req.on('data', (c) => { rawBody += c; });
+            const declaredLength = Number(req.headers && req.headers['content-length']);
+            if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+                this._json(res, 413, { error: '请求体过大' });
+                req.resume();
+                return;
+            }
+            req.on('data', (c) => {
+                if (tooLarge) return;
+                rawBytes += c.length;
+                if (rawBytes > MAX_BODY_BYTES) {
+                    tooLarge = true;
+                    this._json(res, 413, { error: '请求体过大' });
+                    req.resume();
+                    return;
+                }
+                rawBody += c;
+            });
             req.on('end', () => {
+                if (tooLarge) return;
                 const ctx = self._adaptReq(req, rawBody, res);
                 self._route(method, url, ctx, res, rawBody, fullUrl);
             });
+            req.on('error', () => { if (!res.writableEnded) this._json(res, 400, { error: '请求读取失败' }); });
         } catch (e) {
             self._json(res, 500, { error: '请求处理异常' });
         }
@@ -188,6 +227,18 @@ class WebUI {
     /** 鉴权中间件：校验 Cookie，未通过返回 401。 */
     _guard(handler) {
         return (req, res) => {
+            if (req && req.headers && req.headers.origin) {
+                try {
+                    const origin = new URL(req.headers.origin);
+                    if (origin.host !== String(req.headers.host || '')) {
+                        this._json(res, 403, { error: '跨站请求被拒绝' });
+                        return;
+                    }
+                } catch (e) {
+                    this._json(res, 403, { error: '非法请求来源' });
+                    return;
+                }
+            }
             if (!this.hasAuth() || this._isAuthed(req)) {
                 handler(req, res);
             } else {
@@ -213,23 +264,50 @@ class WebUI {
             if (!m) return false;
             const token = m[1];
             const exp = sessions[token];
-            return !!exp && exp > Date.now();
+            if (!exp || exp <= Date.now()) {
+                delete sessions[token];
+                return false;
+            }
+            return true;
         } catch (e) { return false; }
     }
 
     _handleLogin(req, res) {
+        const client = this._clientKey(req);
+        const now = Date.now();
+        const attempt = loginAttempts[client];
+        if (attempt && attempt.resetAt > now && attempt.count >= LOGIN_MAX_FAILURES) {
+            this._json(res, 429, { error: '登录尝试过于频繁，请稍后再试' });
+            return;
+        }
         let body = '';
         try { body = this._readBody(req); } catch (e) { /* ignore */ }
         let data = {};
         try { data = body ? JSON.parse(body) : {}; } catch (e) { /* ignore */ }
         if (data.username === this.username && data.password === this.password) {
+            for (const [token, exp] of Object.entries(sessions)) {
+                if (!exp || exp <= now) delete sessions[token];
+            }
+            if (Object.keys(sessions).length >= 1000) {
+                this._json(res, 503, { error: '登录会话过多，请稍后再试' });
+                return;
+            }
             const token = crypto.randomBytes(16).toString('hex');
             sessions[token] = Date.now() + 12 * 3600 * 1000; // 12h
-            res.setHeader('Set-Cookie', 'huhobot_webui=' + token + '; HttpOnly; Path=/');
+            delete loginAttempts[client];
+            res.setHeader('Set-Cookie', 'huhobot_webui=' + token + '; HttpOnly; SameSite=Strict; Path=/');
             this._json(res, 200, { ok: true });
         } else {
+            if (!attempt || attempt.resetAt <= now) loginAttempts[client] = { count: 1, resetAt: now + LOGIN_WINDOW_MS };
+            else attempt.count++;
             this._json(res, 401, { error: '账号或密码错误' });
         }
+    }
+
+    _clientKey(req) {
+        const forwarded = req && req.headers && (req.headers['x-forwarded-for'] || req.headers['x-real-ip']);
+        const remote = req && req.socket && req.socket.remoteAddress;
+        return String(forwarded || remote || (req && req.headers && req.headers.host) || 'unknown').split(',')[0].trim();
     }
 
     _handleSetupStatus(req, res) {

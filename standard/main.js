@@ -25,6 +25,9 @@ const log = typeof logger !== 'undefined' ? logger : console;
 
 let bot = null;
 let runtime = null;
+let consoleCommandHandle = null;
+let consoleCommandIsListener = false;
+let consoleCommandRegistered = false;
 
 /** 插件版本（读取 manifest.json）。 */
 const VERSION = (() => {
@@ -314,6 +317,9 @@ function handleConsoleCommand(args) {
         log.info('[HuHoBotPenguin] 正在重载配置…');
         stopRuntime();
         startRuntime();
+        if (!consoleCommandRegistered && !consoleCommandHandle) {
+            consoleCommandHandle = registerConsoleCommands();
+        }
         return '已重载配置文件。';
     }
     if (sub === 'info') {
@@ -516,32 +522,57 @@ function runQrLogin() {
  * 注意：回调内绝不调用 mc.runcmd(Ex)，避免 LLSE 文档指出的 onConsoleCmd 内执行后台指令死循环。
  */
 function registerConsoleCommands() {
+    const shared = getConsoleState();
+    shared.handler = handleConsoleCommand;
+    if (shared.registered) {
+        consoleCommandHandle = shared.handle;
+        consoleCommandRegistered = true;
+        consoleCommandIsListener = shared.kind === 'listener';
+        return consoleCommandHandle;
+    }
     if (typeof mc !== 'undefined' && typeof mc.regConsoleCmd === 'function') {
         try {
-            mc.regConsoleCmd('huhobot', 'HuHoBotPenguin 插件控制台命令（reload 重载配置 / info 查看信息）', (args) => {
+            consoleCommandHandle = mc.regConsoleCmd('huhobot', 'HuHoBotPenguin 插件控制台命令（reload 重载配置 / info 查看信息）', (args) => {
                 const argsArr = Array.isArray(args) ? args : [];
-                const text = handleConsoleCommand(argsArr);
+                const text = shared.handler ? shared.handler(argsArr) : '';
                 log.info('[HuHoBotPenguin] ' + text);
                 return true;
             });
+            shared.registered = true;
+            shared.kind = 'command';
+            shared.handle = consoleCommandHandle;
+            consoleCommandRegistered = true;
+            consoleCommandIsListener = false;
             log.info('[HuHoBotPenguin] 已注册控制台命令：huhobot reload | huhobot info');
-            return;
+            return consoleCommandHandle;
         } catch (e) {
             log.warn('[HuHoBotPenguin] 注册 huhobot 控制台命令失败，回退事件监听：' + e.message);
         }
     }
     if (typeof mc !== 'undefined' && typeof mc.listen === 'function') {
         try {
-            mc.listen('onConsoleCmd', (cmd) => {
+            consoleCommandHandle = mc.listen('onConsoleCmd', (cmd) => {
                 const text = String(cmd || '').trim();
                 if (!text.toLowerCase().startsWith('huhobot')) return;
                 const args = text.split(/\s+/).slice(1);
-                log.info('[HuHoBotPenguin] ' + handleConsoleCommand(args));
+                log.info('[HuHoBotPenguin] ' + (shared.handler ? shared.handler(args) : ''));
             });
+            shared.registered = true;
+            shared.kind = 'listener';
+            shared.handle = consoleCommandHandle;
+            consoleCommandRegistered = false;
+            consoleCommandIsListener = true;
+            return consoleCommandHandle;
         } catch (e) {
             log.warn('[HuHoBotPenguin] 注册 huhobot 控制台命令失败：' + e.message);
         }
     }
+}
+
+function getConsoleState() {
+    const key = '__huohoBotPenguinConsoleState';
+    if (!globalScope[key]) globalScope[key] = { registered: false, kind: '', handle: null, handler: null };
+    return globalScope[key];
 }
 
 // 入口文件每被引擎加载一次即执行一次注册与启动。
@@ -564,7 +595,7 @@ if (stoppedOrphans > 0) {
     log.warn('[HuHoBotPenguin] 已停止 ' + stoppedOrphans + ' 个未卸载的旧运行实例（防止双连接/消息双发）');
 }
 
-registerConsoleCommands();
+consoleCommandHandle = registerConsoleCommands();
 startRuntime();
 
 // 记录本实例的停止函数，供下一次热重载时清理
@@ -574,6 +605,13 @@ stopperRegistry.push(stopRuntime);
 if (typeof ll !== 'undefined' && ll.onUnload) {
     ll.onUnload(() => {
         stopRuntime();
+        const shared = getConsoleState();
+        if (shared.kind === 'listener' && shared.handle) {
+            try { mc.removeListener(shared.handle); } catch (e) { /* ignore */ }
+        }
+        shared.registered = false;
+        shared.handle = null;
+        shared.handler = null;
         const idx = stopperRegistry.indexOf(stopRuntime);
         if (idx !== -1) stopperRegistry.splice(idx, 1);
         log.info('[HuHoBotPenguin] 插件已卸载');
